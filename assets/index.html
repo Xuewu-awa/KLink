@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>KLink // 战术终端</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="app">
+        <!-- 侧边导航 (PCL2 风格) -->
+        <nav class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <span class="logo">KLINK</span>
+                <span class="version" id="versionText">v---</span>
+            </div>
+            <ul class="nav-list">
+                <li class="nav-item active" data-tab="server">
+                    <span class="nav-label">服务器</span>
+                </li>
+                <li class="nav-item" data-tab="rooms">
+                    <span class="nav-label">房间发现</span>
+                </li>
+                <li class="nav-item" data-tab="mods">
+                    <span class="nav-label">模组管理</span>
+                </li>
+                <li class="nav-item" data-tab="settings">
+                    <span class="nav-label">设置</span>
+                </li>
+            </ul>
+            <div class="sidebar-footer">
+                <button class="btn btn-primary btn-block" id="btnLaunchGame">启动游戏</button>
+                <div class="status-indicator" id="statusIndicator">
+                    <span class="status-dot offline"></span>
+                    <span class="status-text">未连接</span>
+                </div>
+            </div>
+        </nav>
+
+        <!-- 主内容区 -->
+        <main class="content">
+            <!-- ========== 服务器控制面板 ========== -->
+            <section class="tab-panel active" id="panel-server">
+                <h2 class="panel-title">服务器控制</h2>
+
+                <!-- 模式选择 -->
+                <div class="card">
+                    <h3 class="card-title">运行模式</h3>
+                    <div class="mode-selector">
+                        <button class="btn btn-mode active" data-mode="local">
+                            <span class="mode-name">本地模式</span>
+                            <span class="mode-desc">自娱自乐</span>
+                        </button>
+                        <button class="btn btn-mode" data-mode="lan">
+                            <span class="mode-name">局域网模式</span>
+                            <span class="mode-desc">好友联机</span>
+                        </button>
+                        <button class="btn btn-mode" data-mode="remote">
+                            <span class="mode-name">远程转发</span>
+                            <span class="mode-desc">连接远程服</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 远程地址配置 -->
+                <div class="card" id="cardRemoteConfig" style="display:none;">
+                    <h3 class="card-title">远程服务器地址</h3>
+                    <div class="form-row">
+                        <input type="text" class="input" id="inputRemoteAddr" placeholder="IP 或域名">
+                        <span class="input-sep">:</span>
+                        <input type="number" class="input input-short" id="inputRemotePort" value="5231" min="1" max="65535">
+                    </div>
+                </div>
+
+                <!-- 房间设置 -->
+                <div class="card" id="cardRoomConfig">
+                    <h3 class="card-title">房间设置</h3>
+                    <div class="form-row">
+                        <label class="form-label">房间名</label>
+                        <input type="text" class="input" id="inputRoomName" value="KARDS Room">
+                    </div>
+                    <div class="form-row">
+                        <label class="form-label">主机名</label>
+                        <input type="text" class="input" id="inputHostName" value="Host">
+                    </div>
+                </div>
+
+                <!-- 控制按钮 -->
+                <div class="card">
+                    <div class="btn-row">
+                        <button class="btn btn-accent btn-lg" id="btnStartServer">启动服务器</button>
+                        <button class="btn btn-danger btn-lg" id="btnStopServer" disabled>停止服务器</button>
+                    </div>
+                </div>
+
+                <!-- 控制台日志 -->
+                <div class="card">
+                    <h3 class="card-title">控制台</h3>
+                    <div class="console" id="console">
+                        <div class="console-line dim">等待服务器启动...</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ========== 房间发现面板 ========== -->
+            <section class="tab-panel" id="panel-rooms">
+                <h2 class="panel-title">房间发现</h2>
+                <div class="card">
+                    <div class="btn-row">
+                        <button class="btn btn-accent" id="btnScanRooms">扫描局域网房间</button>
+                        <button class="btn btn-outline" id="btnStopScan" disabled>停止扫描</button>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3 class="card-title">发现的房间</h3>
+                    <div class="room-list" id="roomList">
+                        <div class="empty-hint">点击扫描开始搜索局域网内的房间</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ========== 模组管理面板 ========== -->
+            <section class="tab-panel" id="panel-mods">
+                <h2 class="panel-title">模组管理</h2>
+                <div class="card">
+                    <div class="btn-row">
+                        <button class="btn btn-accent" id="btnScanMods">扫描模组</button>
+                        <button class="btn btn-outline" id="btnInstallMod">安装模组</button>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3 class="card-title">已安装模组</h3>
+                    <div class="mod-list" id="modList">
+                        <div class="empty-hint">暂无模组，点击扫描或安装</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ========== 设置面板 ========== -->
+            <section class="tab-panel" id="panel-settings">
+                <h2 class="panel-title">设置</h2>
+                <div class="card">
+                    <h3 class="card-title">关于</h3>
+                    <div class="about-info">
+                        <p>KLink — KARDS 私服启动器</p>
+                        <p id="versionInfo">版本: ---</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
