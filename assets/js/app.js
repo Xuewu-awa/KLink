@@ -96,14 +96,18 @@
         $('#btnInstallMod').addEventListener('click', installMod);
         $('#btnLaunchGame').addEventListener('click', () => window.KLink.launchGame());
 
-        // 专注模式（空值守卫，防止元素缺失导致后续绑定全部挂掉）
+        // 专注模式（设置面板按钮 → 进入；右下 ✕ 按钮 → 退出）
+        var enterBtn = $('#btnEnterFocus');
+        if (enterBtn) enterBtn.addEventListener('click', enterFocusMode);
+
         var focusBtn = $('#btnFocusToggle');
-        if (focusBtn) focusBtn.addEventListener('click', toggleFocusMode);
+        if (focusBtn) focusBtn.addEventListener('click', exitFocusMode);
 
         // 双击退出专注模式
         document.body.addEventListener('click', function(e) {
             if (!document.body.classList.contains('immersive')) return;
             if (e.target.closest('#btnLaunchGame')) return;
+            if (e.target.closest('#btnFocusToggle')) return;
 
             if (focusTapTimer) {
                 clearTimeout(focusTapTimer);

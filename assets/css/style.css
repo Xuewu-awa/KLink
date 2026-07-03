@@ -1674,37 +1674,38 @@ input[type="color"]::-webkit-color-swatch {
    隐藏 UI 只保留启动游戏按钮，双击恢复
    ============================================================ */
 
-/* ---- 进入专注模式的触发按钮 ---- */
+/* ---- 专注模式下从右下角滑出的退出按钮 ---- */
 .focus-toggle {
     position: fixed;
-    bottom: 20px;
-    right: 20px;
+    bottom: 24px;
+    right: -60px;              /* 默认藏在屏幕外 */
     z-index: 100;
-    width: 36px; height: 36px;
+    width: 44px; height: 44px;
     border-radius: 50%;
-    background: rgba(255,255,255,0.06);
-    border: 1px solid rgba(255,255,255,0.1);
-    color: var(--text-tertiary);
-    font-size: 16px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: var(--text-secondary);
+    font-size: 20px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: all var(--duration-base) var(--ease-out);
+    transition: right 0.5s var(--ease-out), opacity 0.4s var(--ease-out),
+                background var(--duration-base) var(--ease-out);
     -webkit-tap-highlight-color: transparent;
-}
-
-.focus-toggle:hover {
-    background: rgba(255,255,255,0.12);
-    border-color: rgba(255,255,255,0.25);
-    color: var(--text-primary);
-    box-shadow: 0 0 16px rgba(0,0,0,0.4);
-}
-
-/* ---- 专注模式下隐藏触发按钮 ---- */
-body.immersive .focus-toggle {
-    opacity: 0;
     pointer-events: none;
+}
+
+body.immersive .focus-toggle {
+    right: 20px;               /* 滑入 */
+    pointer-events: auto;
+    opacity: 0.85;
+}
+
+body.immersive .focus-toggle:hover {
+    background: rgba(255,255,255,0.16);
+    border-color: rgba(255,255,255,0.35);
+    opacity: 1;
 }
 
 /* ---- 专注模式：侧边栏滑出 ---- */
