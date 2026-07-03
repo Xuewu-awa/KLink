@@ -178,6 +178,8 @@ const LayoutEngine = (function() {
         bound.id = 'layout-ui-bound';
         document.head.appendChild(bound);
 
+        try {
+
         function refreshUI() {
             const cfg = getCurrent();
 
@@ -363,6 +365,8 @@ const LayoutEngine = (function() {
 
         // 初始刷新
         refreshUI();
+
+        } catch(e) {}
     }
 
     // ======================== 初始化 ========================
