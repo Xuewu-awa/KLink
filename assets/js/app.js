@@ -45,17 +45,18 @@
 
     // ==================== 事件绑定 ====================
     // ==================== 专注模式 ====================
-    let focusTapTimer = null;
+    let focusHintTimer = null;   // 提示自动隐藏定时器
+    let focusTapTimer = null;    // 双击检测定时器
 
     function enterFocusMode() {
         document.body.classList.add('immersive');
-        // 显示双击提示，3 秒后自动淡出
         const hint = $('#focusHint');
         if (hint) {
             hint.classList.add('show');
-            clearTimeout(focusTapTimer);
-            focusTapTimer = setTimeout(function() {
+            clearTimeout(focusHintTimer);
+            focusHintTimer = setTimeout(function() {
                 hint.classList.remove('show');
+                focusHintTimer = null;
             }, 3000);
         }
     }
@@ -64,6 +65,10 @@
         document.body.classList.remove('immersive');
         const hint = $('#focusHint');
         if (hint) hint.classList.remove('show');
+        clearTimeout(focusTapTimer);
+        clearTimeout(focusHintTimer);
+        focusTapTimer = null;
+        focusHintTimer = null;
     }
 
     function toggleFocusMode() {
@@ -91,22 +96,20 @@
         $('#btnInstallMod').addEventListener('click', installMod);
         $('#btnLaunchGame').addEventListener('click', () => window.KLink.launchGame());
 
-        // 专注模式
-        $('#btnFocusToggle').addEventListener('click', toggleFocusMode);
+        // 专注模式（空值守卫，防止元素缺失导致后续绑定全部挂掉）
+        var focusBtn = $('#btnFocusToggle');
+        if (focusBtn) focusBtn.addEventListener('click', toggleFocusMode);
 
         // 双击退出专注模式
         document.body.addEventListener('click', function(e) {
             if (!document.body.classList.contains('immersive')) return;
-            // 不拦截启动游戏按钮的点击
             if (e.target.closest('#btnLaunchGame')) return;
 
             if (focusTapTimer) {
-                // 第二次点击 → 退出
                 clearTimeout(focusTapTimer);
                 focusTapTimer = null;
                 exitFocusMode();
             } else {
-                // 第一次点击 → 等 350ms
                 focusTapTimer = setTimeout(function() {
                     focusTapTimer = null;
                 }, 350);
