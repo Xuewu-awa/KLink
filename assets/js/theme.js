@@ -60,28 +60,28 @@ const ThemeEngine = (function() {
         'moon-light': {
             name: 'Moon Light',
             colors: {
-                bgDeep: '#f5f3f0', bgBase: '#fafaf8', bgSurface: '#ffffff',
-                bgElevated: '#f8f7f5', bgOverlay: '#f0efec',
-                textPrimary: '#1a1a1e', textSecondary: '#5a5a65',
-                textTertiary: '#909098', textDisabled: '#c0c0c8',
-                accent: '#3d8b7e', accentStrong: '#2a6b60', accentMuted: '#6aaa9e',
-                amber: '#c8942e', danger: '#d4503c', success: '#4a9e6e'
+                bgDeep: '#e8e4dc', bgBase: '#edeae3', bgSurface: '#f2f0ea',
+                bgElevated: '#ece9e2', bgOverlay: '#e5e1d8',
+                textPrimary: '#2a2822', textSecondary: '#5e5b52',
+                textTertiary: '#8c887c', textDisabled: '#bab6aa',
+                accent: '#5c8a78', accentStrong: '#3d6b58', accentMuted: '#8ab8a4',
+                amber: '#b88430', danger: '#c05040', success: '#4a8e60'
             },
-            background: { type: 'solid', value: '#f5f3f0', gradient: 'linear-gradient(160deg, #f5f3f0 0%, #fafaf8 50%, #f0efec 100%)', imageUrl: '', imageOpacity: 0.04, imageBlur: '0px' },
+            background: { type: 'solid', value: '#e8e4dc', gradient: 'linear-gradient(160deg, #e8e4dc 0%, #f2f0ea 50%, #e5e1d8 100%)', imageUrl: '', imageOpacity: 0.04, imageBlur: '0px' },
             spacing: 'comfortable', radius: 'rounded', noise: false, noiseOpacity: 0
         },
-        'forest': {
-            name: 'Forest',
+        'amber-gold': {
+            name: 'Amber Gold',
             colors: {
-                bgDeep: '#0a0f0a', bgBase: '#0e140e', bgSurface: '#121a12',
-                bgElevated: '#182218', bgOverlay: '#1e2a1e',
-                textPrimary: '#e8efe4', textSecondary: '#a0b898',
-                textTertiary: '#607858', textDisabled: '#405038',
-                accent: '#8cc87c', accentStrong: '#a8e898', accentMuted: '#5a8e4e',
-                amber: '#d4b858', danger: '#d46858', success: '#7ec97c'
+                bgDeep: '#12100a', bgBase: '#18150e', bgSurface: '#1e1a12',
+                bgElevated: '#262118', bgOverlay: '#2e281e',
+                textPrimary: '#efe8d8', textSecondary: '#b8a888',
+                textTertiary: '#786848', textDisabled: '#504838',
+                accent: '#d4a848', accentStrong: '#e8c060', accentMuted: '#a07828',
+                amber: '#e8c878', danger: '#d46848', success: '#88c878'
             },
-            background: { type: 'gradient', value: '#0a0f0a', gradient: 'linear-gradient(160deg, #0a0f0a 0%, #101d10 50%, #0a1008 100%)', imageUrl: '', imageOpacity: 0.08, imageBlur: '0px' },
-            spacing: 'comfortable', radius: 'sharp', noise: true, noiseOpacity: 0.02
+            background: { type: 'gradient', value: '#12100a', gradient: 'linear-gradient(160deg, #12100a 0%, #1c1810 50%, #100e08 100%)', imageUrl: '', imageOpacity: 0.08, imageBlur: '0px' },
+            spacing: 'comfortable', radius: 'rounded', noise: true, noiseOpacity: 0.02
         },
         'sunset': {
             name: 'Sunset',
