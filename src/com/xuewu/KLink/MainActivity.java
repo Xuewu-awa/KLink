@@ -27,6 +27,9 @@ public class MainActivity extends Activity {
 
     private static final String GAME_ACTIVITY = "com.epicgames.unreal.SplashActivity";
     private static final int FILE_SELECT_CODE = 100;
+    private static final int THEME_FILE_SELECT_CODE = 101;
+    private static final int THEME_SAVE_CODE = 102;
+    private static final int BG_IMAGE_SELECT_CODE = 103;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -102,14 +105,60 @@ public class MainActivity extends Activity {
         startActivityForResult(intent, FILE_SELECT_CODE);
     }
 
+    /**
+     * 打开文件选择器，用于导入主题 JSON。
+     */
+    public void pickThemeFile() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("application/json");
+        String[] mimeTypes = {"application/json", "text/plain", "text/json"};
+        intent.putExtra(Intent.EXTRA_MIME_TYPES, mimeTypes);
+        startActivityForResult(intent, THEME_FILE_SELECT_CODE);
+    }
+
+    /**
+     * 保存主题 JSON 到用户指定位置（通过系统文件选择器）。
+     */
+    public void saveThemeFile(String initialName) {
+        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("application/json");
+        intent.putExtra(Intent.EXTRA_TITLE, initialName);
+        startActivityForResult(intent, THEME_SAVE_CODE);
+    }
+
+    /**
+     * 打开图片选择器，用于选取背景图片。
+     */
+    public void pickImageFile() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("image/*");
+        startActivityForResult(intent, BG_IMAGE_SELECT_CODE);
+    }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == FILE_SELECT_CODE && resultCode == RESULT_OK && data != null) {
-            Uri uri = data.getData();
-            if (uri != null && bridge != null) {
+        if (resultCode != RESULT_OK || data == null) return;
+
+        Uri uri = data.getData();
+        if (uri == null || bridge == null) return;
+
+        switch (requestCode) {
+            case FILE_SELECT_CODE:
                 bridge.onFilePicked(uri);
-            }
+                break;
+            case THEME_FILE_SELECT_CODE:
+                bridge.onThemeFilePicked(uri);
+                break;
+            case THEME_SAVE_CODE:
+                bridge.onThemeSaveUriReady(uri);
+                break;
+            case BG_IMAGE_SELECT_CODE:
+                bridge.onBgImagePicked(uri);
+                break;
         }
     }
 

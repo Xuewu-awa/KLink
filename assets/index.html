@@ -30,6 +30,10 @@
                     <span class="nav-icon">◫</span>
                     <span class="nav-label">模组管理</span>
                 </li>
+                <li class="nav-item" data-tab="theme">
+                    <span class="nav-icon">◐</span>
+                    <span class="nav-label">主题</span>
+                </li>
                 <li class="nav-item" data-tab="settings">
                     <span class="nav-icon">⚙</span>
                     <span class="nav-label">设置</span>
@@ -164,6 +168,117 @@
                 </div>
             </section>
 
+            <!-- ========== 主题面板 ========== -->
+            <section class="tab-panel" id="panel-theme">
+                <h2 class="panel-title">主题</h2>
+
+                <!-- 预设 -->
+                <div class="card">
+                    <h3 class="card-title">内置预设</h3>
+                    <div class="preset-grid" id="presetGrid"></div>
+                </div>
+
+                <!-- 配色 -->
+                <div class="card">
+                    <h3 class="card-title">配色方案</h3>
+
+                    <div class="theme-section-title">背景层级</div>
+                    <div class="color-group" id="colorGroupBg"></div>
+
+                    <div class="theme-section-title">文字层级</div>
+                    <div class="color-group" id="colorGroupText"></div>
+
+                    <div class="theme-section-title">强调色</div>
+                    <div class="color-group" id="colorGroupAccent"></div>
+
+                    <div class="theme-section-title">语义色</div>
+                    <div class="color-group" id="colorGroupSemantic"></div>
+                </div>
+
+                <!-- 背景 -->
+                <div class="card">
+                    <h3 class="card-title">背景</h3>
+                    <div class="bg-option-row" id="bgTypeRow">
+                        <button class="bg-option active" data-type="solid">纯色</button>
+                        <button class="bg-option" data-type="gradient">渐变</button>
+                        <button class="bg-option" data-type="image">图片</button>
+                    </div>
+                    <div class="bg-preview" id="bgPreview">
+                        <span class="bg-preview-label" id="bgPreviewLabel">纯色</span>
+                    </div>
+                    <div id="bgGradientRow" style="display:none;">
+                        <textarea class="input" id="inputBgGradient" rows="2"
+                            placeholder="CSS gradient, e.g. linear-gradient(160deg, #050508, #0a0a10)"
+                            style="width:100%; resize:vertical; font-size:10px; min-height:40px;"></textarea>
+                    </div>
+                    <div id="bgImageRow" style="display:none;">
+                        <div class="bg-image-row">
+                            <input type="text" class="input" id="inputBgImageUrl" placeholder="图片 URL 或 Base64 data: URI">
+                            <button class="btn btn-sm btn-ghost" id="btnBgImageFile">📁</button>
+                        </div>
+                        <input type="file" id="inputBgImageFile" accept="image/*" style="display:none;">
+                        <div class="bg-opacity-row">
+                            <label>不透明度</label>
+                            <input type="range" id="rangeBgOpacity" min="3" max="40" value="12">
+                            <span class="range-val" id="valBgOpacity">12%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 排版 -->
+                <div class="card">
+                    <h3 class="card-title">间距</h3>
+                    <div class="option-row" id="spacingRow">
+                        <button class="option-btn" data-spacing="compact">紧凑</button>
+                        <button class="option-btn active" data-spacing="comfortable">标准</button>
+                        <button class="option-btn" data-spacing="spacious">宽松</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3 class="card-title">圆角</h3>
+                    <div class="option-row" id="radiusRow">
+                        <button class="option-btn" data-radius="sharp">锐利</button>
+                        <button class="option-btn active" data-radius="rounded">标准</button>
+                        <button class="option-btn" data-radius="pill">圆润</button>
+                    </div>
+                </div>
+
+                <!-- 噪点 -->
+                <div class="card">
+                    <div class="toggle-row">
+                        <span class="toggle-label">噪点纹理</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="toggleNoise" checked>
+                            <span class="toggle-track"></span>
+                        </label>
+                    </div>
+                    <div class="bg-opacity-row" id="noiseOpacityRow">
+                        <label>噪点强度</label>
+                        <input type="range" id="rangeNoiseOpacity" min="5" max="60" value="25">
+                        <span class="range-val" id="valNoiseOpacity">2.5%</span>
+                    </div>
+                </div>
+
+                <!-- 导入导出 -->
+                <div class="card">
+                    <h3 class="card-title">导入 / 导出</h3>
+                    <div class="theme-actions">
+                        <button class="btn btn-accent" id="btnExportTheme">导出主题</button>
+                        <button class="btn btn-ghost" id="btnShareTheme">分享主题</button>
+                        <button class="btn btn-ghost" id="btnImportTheme">导入主题</button>
+                        <button class="btn btn-ghost" id="btnResetTheme">恢复默认</button>
+                    </div>
+                    <input type="file" id="inputImportFile" accept=".json" style="display:none;">
+                    <div style="margin-top: var(--space-sm);">
+                        <textarea class="input" id="inputImportJson" rows="3"
+                            placeholder="或粘贴 JSON 主题数据..."
+                            style="width:100%; resize:vertical; font-size:10px; min-height:48px;"></textarea>
+                        <button class="btn btn-sm btn-ghost" id="btnApplyPasted" style="margin-top:6px;">应用粘贴的主题</button>
+                    </div>
+                </div>
+            </section>
+
             <!-- ========== 设置面板 ========== -->
             <section class="tab-panel" id="panel-settings">
                 <h2 class="panel-title">设置</h2>
@@ -180,6 +295,7 @@
         </main>
     </div>
 
+    <script src="js/theme.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>

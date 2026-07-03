@@ -2,7 +2,9 @@ package com.xuewu.KLink;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
+import android.net.Uri;
 import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
@@ -310,6 +312,181 @@ public class KLinkBridge {
     @JavascriptInterface
     public String getModList() {
         return modManager.scanMods();
+    }
+
+    // ==================== 主题导入导出 ====================
+
+    /** 暂存待写入的主题 JSON，等用户选好保存位置后写入 */
+    private String pendingThemeJson = null;
+
+    /**
+     * 导出主题 — 通过系统文件选择器让用户选择保存位置。
+     * 前端调用此方法后，系统弹出保存对话框。
+     */
+    @JavascriptInterface
+    public void exportTheme(String themeJson) {
+        pendingThemeJson = themeJson;
+        activity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                if (activity instanceof MainActivity) {
+                    // 解析主题名用于默认文件名
+                    String name = "klink-theme";
+                    try {
+                        JSONObject obj = new JSONObject(pendingThemeJson);
+                        String themeName = obj.optString("name", "");
+                        if (!themeName.isEmpty()) {
+                            name = "klink-theme-" + themeName.replaceAll("[^a-zA-Z0-9_\\-\\u4e00-\\u9fff]", "_");
+                        }
+                    } catch (Exception ignored) {}
+                    ((MainActivity) activity).saveThemeFile(name + ".json");
+                }
+            }
+        });
+    }
+
+    /**
+     * 快速分享主题 — 通过 Android 分享面板发送 JSON 文本。
+     */
+    @JavascriptInterface
+    public void shareTheme(String themeJson) {
+        final String json = themeJson;
+        activity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Intent intent = new Intent(Intent.ACTION_SEND);
+                    intent.setType("text/plain");
+                    intent.putExtra(Intent.EXTRA_TEXT, json);
+                    intent.putExtra(Intent.EXTRA_SUBJECT, "KLink Theme");
+                    activity.startActivity(Intent.createChooser(intent, "分享主题"));
+                } catch (Exception e) {
+                    showToast("分享失败: " + e.getMessage());
+                }
+            }
+        });
+    }
+
+    /**
+     * 用户选好保存位置后的回调 — 将主题 JSON 写入该 URI。
+     */
+    public void onThemeSaveUriReady(final Uri uri) {
+        if (pendingThemeJson == null) return;
+        final String json = pendingThemeJson;
+        pendingThemeJson = null;
+
+        try {
+            java.io.OutputStream out = activity.getContentResolver().openOutputStream(uri);
+            if (out == null) {
+                emitError("无法写入文件");
+                return;
+            }
+            out.write(json.getBytes("UTF-8"));
+            out.flush();
+            out.close();
+            showToast("主题已保存");
+        } catch (Exception e) {
+            emitError("保存失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 导入主题 — 打开文件选择器选取 JSON 文件。
+     */
+    @JavascriptInterface
+    public void pickThemeFile() {
+        activity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                if (activity instanceof MainActivity) {
+                    ((MainActivity) activity).pickThemeFile();
+                }
+            }
+        });
+    }
+
+    // ==================== 背景图片选取 ====================
+
+    /**
+     * 选取背景图片 — 打开系统图片选择器。
+     */
+    @JavascriptInterface
+    public void pickBgImageFile() {
+        activity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                if (activity instanceof MainActivity) {
+                    ((MainActivity) activity).pickImageFile();
+                }
+            }
+        });
+    }
+
+    /**
+     * 用户选好背景图片后的回调 — 读取为 Base64 并传给前端。
+     */
+    public void onBgImagePicked(final Uri uri) {
+        try {
+            java.io.InputStream in = activity.getContentResolver().openInputStream(uri);
+            if (in == null) {
+                emitError("无法读取图片");
+                return;
+            }
+            java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
+            byte[] buf = new byte[65536];
+            int n;
+            while ((n = in.read(buf)) != -1) {
+                bos.write(buf, 0, n);
+            }
+            in.close();
+            byte[] bytes = bos.toByteArray();
+            bos.close();
+
+            // Base64 编码
+            String base64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP);
+
+            // 根据 MIME 类型构建 data URI
+            String mime = activity.getContentResolver().getType(uri);
+            if (mime == null) mime = "image/*";
+            final String dataUri = "data:" + mime + ";base64," + base64;
+
+            // 传给前端
+            final String escaped = dataUri.replace("\\", "\\\\").replace("'", "\\'");
+            evalJs("if(window.onBgImageLoaded) window.onBgImageLoaded('" + escaped + "');");
+        } catch (Exception e) {
+            emitError("读取图片失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 用户选好主题文件后的回调 — 读取内容并传给前端。
+     */
+    public void onThemeFilePicked(final Uri uri) {
+        try {
+            java.io.InputStream in = activity.getContentResolver().openInputStream(uri);
+            if (in == null) {
+                emitError("无法读取文件");
+                return;
+            }
+            java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
+            byte[] buf = new byte[16384];
+            int n;
+            while ((n = in.read(buf)) != -1) {
+                bos.write(buf, 0, n);
+            }
+            in.close();
+            String json = bos.toString("UTF-8");
+            bos.close();
+
+            // 传给前端
+            final String escaped = json.replace("\\", "\\\\")
+                    .replace("'", "\\'")
+                    .replace("\n", "\\n")
+                    .replace("\r", "\\r");
+            evalJs("if(window.onThemeFileLoaded) window.onThemeFileLoaded('" + escaped + "');");
+        } catch (Exception e) {
+            emitError("读取主题失败: " + e.getMessage());
+        }
     }
 
     // ==================== 实用方法 ====================
