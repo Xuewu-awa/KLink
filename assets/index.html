@@ -217,9 +217,17 @@
                             <button class="btn btn-sm btn-ghost" id="btnBgImageFile">📁</button>
                         </div>
                         <input type="file" id="inputBgImageFile" accept="image/*" style="display:none;">
-                        <div class="bg-opacity-row">
+
+                        <div class="theme-section-title" style="margin-top: var(--space-sm);">透明度模式</div>
+                        <div class="option-row" id="bgBlendRow">
+                            <button class="option-btn active" data-blend="normal">普通透明</button>
+                            <button class="option-btn" data-blend="opaque">不透明</button>
+                            <button class="option-btn" data-blend="frosted">磨砂玻璃</button>
+                        </div>
+
+                        <div class="bg-opacity-row" id="bgOpacitySliderRow">
                             <label>不透明度</label>
-                            <input type="range" id="rangeBgOpacity" min="3" max="40" value="12">
+                            <input type="range" id="rangeBgOpacity" min="3" max="100" value="12">
                             <span class="range-val" id="valBgOpacity">12%</span>
                         </div>
                     </div>

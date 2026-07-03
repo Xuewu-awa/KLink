@@ -34,7 +34,8 @@ const ThemeEngine = (function() {
             gradient: 'linear-gradient(160deg, #050508 0%, #0a0a10 50%, #06060c 100%)',
             imageUrl: '',
             imageOpacity: 0.12,
-            imageBlur: '0px'
+            imageBlur: '0px',
+            blend: 'normal'       // 'opaque' | 'normal' | 'frosted'
         },
         spacing: 'comfortable',  // 'compact' | 'comfortable' | 'spacious'
         radius: 'rounded',       // 'sharp' | 'rounded' | 'pill'
@@ -54,7 +55,7 @@ const ThemeEngine = (function() {
                 accent: '#9ed9cc', accentStrong: '#b8f0e4', accentMuted: '#6a9e92',
                 amber: '#e8c57a', danger: '#e06c60', success: '#7ec99c'
             },
-            background: { type: 'solid', value: '#050508', gradient: 'linear-gradient(160deg, #050508 0%, #0a0a10 50%, #06060c 100%)', imageUrl: '', imageOpacity: 0.12, imageBlur: '0px' },
+            background: { type: 'solid', value: '#050508', gradient: 'linear-gradient(160deg, #050508 0%, #0a0a10 50%, #06060c 100%)', imageUrl: '', imageOpacity: 0.12, imageBlur: '0px', blend: 'normal' },
             spacing: 'comfortable', radius: 'rounded', noise: true, noiseOpacity: 0.025
         },
         'moon-light': {
@@ -67,7 +68,7 @@ const ThemeEngine = (function() {
                 accent: '#5c8a78', accentStrong: '#3d6b58', accentMuted: '#8ab8a4',
                 amber: '#b88430', danger: '#c05040', success: '#4a8e60'
             },
-            background: { type: 'solid', value: '#e8e4dc', gradient: 'linear-gradient(160deg, #e8e4dc 0%, #f2f0ea 50%, #e5e1d8 100%)', imageUrl: '', imageOpacity: 0.04, imageBlur: '0px' },
+            background: { type: 'solid', value: '#e8e4dc', gradient: 'linear-gradient(160deg, #e8e4dc 0%, #f2f0ea 50%, #e5e1d8 100%)', imageUrl: '', imageOpacity: 0.04, imageBlur: '0px', blend: 'normal' },
             spacing: 'comfortable', radius: 'rounded', noise: false, noiseOpacity: 0
         },
         'amber-gold': {
@@ -80,7 +81,7 @@ const ThemeEngine = (function() {
                 accent: '#d4a848', accentStrong: '#e8c060', accentMuted: '#a07828',
                 amber: '#e8c878', danger: '#d46848', success: '#88c878'
             },
-            background: { type: 'gradient', value: '#12100a', gradient: 'linear-gradient(160deg, #12100a 0%, #1c1810 50%, #100e08 100%)', imageUrl: '', imageOpacity: 0.08, imageBlur: '0px' },
+            background: { type: 'gradient', value: '#12100a', gradient: 'linear-gradient(160deg, #12100a 0%, #1c1810 50%, #100e08 100%)', imageUrl: '', imageOpacity: 0.08, imageBlur: '0px', blend: 'normal' },
             spacing: 'comfortable', radius: 'rounded', noise: true, noiseOpacity: 0.02
         },
         'sunset': {
@@ -93,7 +94,7 @@ const ThemeEngine = (function() {
                 accent: '#e8946c', accentStrong: '#f0ac88', accentMuted: '#c07050',
                 amber: '#e8c87c', danger: '#e06858', success: '#8cc87c'
             },
-            background: { type: 'gradient', value: '#0f0a0c', gradient: 'linear-gradient(160deg, #0f0a0c 0%, #1a1014 50%, #120a0e 100%)', imageUrl: '', imageOpacity: 0.1, imageBlur: '0px' },
+            background: { type: 'gradient', value: '#0f0a0c', gradient: 'linear-gradient(160deg, #0f0a0c 0%, #1a1014 50%, #120a0e 100%)', imageUrl: '', imageOpacity: 0.1, imageBlur: '0px', blend: 'normal' },
             spacing: 'comfortable', radius: 'rounded', noise: true, noiseOpacity: 0.02
         },
         'ocean': {
@@ -106,7 +107,7 @@ const ThemeEngine = (function() {
                 accent: '#6cace8', accentStrong: '#88c4f0', accentMuted: '#4e88c0',
                 amber: '#d4b858', danger: '#d46868', success: '#6cc8a0'
             },
-            background: { type: 'gradient', value: '#060a12', gradient: 'linear-gradient(160deg, #060a12 0%, #0c1424 50%, #060c18 100%)', imageUrl: '', imageOpacity: 0.1, imageBlur: '0px' },
+            background: { type: 'gradient', value: '#060a12', gradient: 'linear-gradient(160deg, #060a12 0%, #0c1424 50%, #060c18 100%)', imageUrl: '', imageOpacity: 0.1, imageBlur: '0px', blend: 'normal' },
             spacing: 'comfortable', radius: 'rounded', noise: true, noiseOpacity: 0.02
         }
     };
@@ -189,8 +190,21 @@ const ThemeEngine = (function() {
             }
             const overlay = document.getElementById('theme-bg-overlay');
             overlay.style.backgroundImage = `url(${bg.imageUrl})`;
-            overlay.style.opacity = bg.imageOpacity;
-            overlay.style.filter = `blur(${bg.imageBlur || '0px'})`;
+
+            const blend = bg.blend || 'normal';
+            if (blend === 'opaque') {
+                overlay.style.opacity = 1;
+                overlay.style.filter = 'none';
+                overlay.style.backdropFilter = 'none';
+            } else if (blend === 'frosted') {
+                overlay.style.opacity = 0.55;
+                overlay.style.filter = 'blur(12px) saturate(1.2)';
+                overlay.style.backdropFilter = 'blur(12px) saturate(1.2)';
+            } else {
+                overlay.style.opacity = bg.imageOpacity;
+                overlay.style.filter = `blur(${bg.imageBlur || '0px'})`;
+                overlay.style.backdropFilter = 'none';
+            }
         } else if (existingOverlay) {
             existingOverlay.remove();
         }
@@ -486,8 +500,25 @@ const ThemeEngine = (function() {
             }
             if (bgType === 'image') {
                 $('#inputBgImageUrl').value = theme.background.imageUrl || '';
-                $('#rangeBgOpacity').value = Math.round((theme.background.imageOpacity || 0.12) * 100);
-                $('#valBgOpacity').textContent = Math.round((theme.background.imageOpacity || 0.12) * 100) + '%';
+
+                // blend 模式
+                const blend = theme.background.blend || 'normal';
+                $$('#bgBlendRow .option-btn').forEach(b => {
+                    b.classList.toggle('active', b.dataset.blend === blend);
+                });
+                const sliderRow = $('#bgOpacitySliderRow');
+                if (sliderRow) sliderRow.style.display = (blend === 'normal') ? 'flex' : 'none';
+
+                if (blend === 'opaque') {
+                    $('#rangeBgOpacity').value = 100;
+                    $('#valBgOpacity').textContent = '100%';
+                } else if (blend === 'frosted') {
+                    $('#rangeBgOpacity').value = 55;
+                    $('#valBgOpacity').textContent = '55%';
+                } else {
+                    $('#rangeBgOpacity').value = Math.round((theme.background.imageOpacity || 0.12) * 100);
+                    $('#valBgOpacity').textContent = Math.round((theme.background.imageOpacity || 0.12) * 100) + '%';
+                }
             }
             updateBgPreview();
 
@@ -701,6 +732,39 @@ const ThemeEngine = (function() {
             applyBgImageUrl(dataUri);
         };
 
+        // — 透明度模式 —
+        $$('#bgBlendRow .option-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const blend = this.dataset.blend;
+                $$('#bgBlendRow .option-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+
+                const current = getCurrent();
+                current.background.blend = blend;
+
+                // 滑块联动
+                const sliderRow = $('#bgOpacitySliderRow');
+                const range = $('#rangeBgOpacity');
+                if (blend === 'opaque') {
+                    if (sliderRow) sliderRow.style.display = 'none';
+                    current.background.imageOpacity = 1;
+                } else if (blend === 'frosted') {
+                    if (sliderRow) sliderRow.style.display = 'none';
+                    current.background.imageOpacity = 0.55;
+                    current.background.imageBlur = '12px';
+                } else {
+                    if (sliderRow) sliderRow.style.display = 'flex';
+                    if (range) {
+                        current.background.imageOpacity = parseInt(range.value) / 100;
+                    }
+                }
+
+                applyTheme(current);
+                save();
+                updateBgPreview();
+            });
+        });
+
         // — 图片不透明度滑块 —
         const rangeBgOpacity = $('#rangeBgOpacity');
         if (rangeBgOpacity) {
@@ -709,10 +773,15 @@ const ThemeEngine = (function() {
                 $('#valBgOpacity').textContent = this.value + '%';
                 const current = getCurrent();
                 current.background.imageOpacity = val;
+                current.background.blend = 'normal';
+                // 同步 blend 按钮
+                $$('#bgBlendRow .option-btn').forEach(b => b.classList.remove('active'));
+                const normalBtn = document.querySelector('#bgBlendRow [data-blend="normal"]');
+                if (normalBtn) normalBtn.classList.add('active');
                 applyTheme(current);
                 save();
             });
-        }
+        });
 
         // — 间距选择 —
         $$('#spacingRow .option-btn').forEach(btn => {
