@@ -423,32 +423,50 @@ public class KLinkBridge {
     }
 
     /**
-     * 用户选好背景图片后的回调 — 读取为 Base64 并传给前端。
+     * 用户选好背景图片后的回调 — 压缩后以 Base64 传给前端。
+     * 原图可能 10MB+，直接 Base64 会导致 WebView 卡死，
+     * 因此先缩放到合理尺寸再编码为 JPEG。
      */
     public void onBgImagePicked(final Uri uri) {
         try {
-            java.io.InputStream in = activity.getContentResolver().openInputStream(uri);
-            if (in == null) {
-                emitError("无法读取图片");
+            // 1. 只读尺寸，不加载全图
+            android.graphics.BitmapFactory.Options opts = new android.graphics.BitmapFactory.Options();
+            opts.inJustDecodeBounds = true;
+            java.io.InputStream in1 = activity.getContentResolver().openInputStream(uri);
+            android.graphics.BitmapFactory.decodeStream(in1, null, opts);
+            in1.close();
+
+            // 2. 计算缩放比例，目标最长边 800px
+            int maxDim = 800;
+            int scale = 1;
+            int w = opts.outWidth;
+            int h = opts.outHeight;
+            while (w / scale > maxDim || h / scale > maxDim) {
+                scale *= 2;
+            }
+
+            // 3. 按缩放比例解码
+            android.graphics.BitmapFactory.Options decodeOpts = new android.graphics.BitmapFactory.Options();
+            decodeOpts.inSampleSize = scale;
+            java.io.InputStream in2 = activity.getContentResolver().openInputStream(uri);
+            android.graphics.Bitmap bitmap = android.graphics.BitmapFactory.decodeStream(in2, null, decodeOpts);
+            in2.close();
+
+            if (bitmap == null) {
+                emitError("无法解码图片");
                 return;
             }
+
+            // 4. 编码为 JPEG，质量 75%
             java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
-            byte[] buf = new byte[65536];
-            int n;
-            while ((n = in.read(buf)) != -1) {
-                bos.write(buf, 0, n);
-            }
-            in.close();
+            bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 75, bos);
+            bitmap.recycle();
             byte[] bytes = bos.toByteArray();
             bos.close();
 
-            // Base64 编码
+            // 5. Base64
             String base64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP);
-
-            // 根据 MIME 类型构建 data URI
-            String mime = activity.getContentResolver().getType(uri);
-            if (mime == null) mime = "image/*";
-            final String dataUri = "data:" + mime + ";base64," + base64;
+            final String dataUri = "data:image/jpeg;base64," + base64;
 
             // 传给前端
             final String escaped = dataUri.replace("\\", "\\\\").replace("'", "\\'");
