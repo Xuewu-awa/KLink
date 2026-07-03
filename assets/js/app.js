@@ -77,7 +77,22 @@
         currentMode = mode;
         $$('.btn-mode').forEach(b => b.classList.remove('active'));
         document.querySelector(`[data-mode="${mode}"]`).classList.add('active');
-        $('#cardRemoteConfig').style.display = (mode === 'remote') ? 'block' : 'none';
+
+        const isRemote = (mode === 'remote');
+        $('#cardRemoteConfig').style.display = isRemote ? 'block' : 'none';
+        $('#cardRoomConfig').style.display = isRemote ? 'none' : 'block';
+
+        // — 按钮文本：远程→连接，本地/局域网→启动 —
+        $('#btnStartServer').textContent = isRemote ? '连接服务器' : '启动服务器';
+
+        // — Hero 元数据 —
+        const heroMode = $('#heroMode');
+        if (heroMode) heroMode.textContent = modeLabel(mode);
+
+        // — 未运行时更新 Hero 副标题 —
+        if (!serverRunning) {
+            $('#heroSubtitle').textContent = isRemote ? '输入地址以连接' : '选择模式以开始';
+        }
 
         if (fromClick && serverRunning) {
             log('模式已更改，请重启服务器生效', '');
@@ -114,17 +129,32 @@
         $('#btnStartServer').disabled = running;
         $('#btnStopServer').disabled = !running;
 
+        // — 侧边栏状态 —
         const dot = $('#statusIndicator').querySelector('.status-dot');
         const text = $('#statusIndicator').querySelector('.status-text');
+
+        // — Hero 状态 —
+        const heroInd = $('#heroIndicator');
+        const heroTitle = $('#heroTitle');
+        const heroSub = $('#heroSubtitle');
+
+        const isRemote = (currentMode === 'remote');
+
         if (running) {
             dot.className = 'status-dot online';
             text.textContent = '运行中';
+            heroInd.className = 'status-hero-indicator online';
+            heroTitle.textContent = isRemote ? '已连接至远程服务器' : '服务器运行中';
+            heroSub.textContent = (isRemote ? '远程转发' : modeLabel(currentMode)).toUpperCase() + ' · 端口 5231';
             if (!statusTimer) {
                 statusTimer = setInterval(refreshStatus, 3000);
             }
         } else {
             dot.className = 'status-dot offline';
             text.textContent = '未连接';
+            heroInd.className = 'status-hero-indicator offline';
+            heroTitle.textContent = isRemote ? '未连接' : '服务器未启动';
+            heroSub.textContent = isRemote ? '输入地址以连接' : '选择模式以开始';
             if (statusTimer) {
                 clearInterval(statusTimer);
                 statusTimer = null;
@@ -260,6 +290,8 @@
         if (type === 'error') {
             log(msg, 'error');
             setServerUI(false);
+        } else if (type === 'warn') {
+            log(msg, 'warn');
         } else if (type === 'status') {
             if (msg.includes('已启动')) setServerUI(true);
             if (msg.includes('已停止')) setServerUI(false);

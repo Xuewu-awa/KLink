@@ -8,28 +8,36 @@
 </head>
 <body>
     <div class="app">
-        <!-- 侧边导航 (PCL2 风格) -->
+        <!-- ========================================== -->
+        <!-- 侧边导航 — 暗色底座 + 翡翠强调           -->
+        <!-- ========================================== -->
         <nav class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <span class="logo">KLINK</span>
                 <span class="version" id="versionText">v---</span>
             </div>
+
             <ul class="nav-list">
                 <li class="nav-item active" data-tab="server">
+                    <span class="nav-icon">◇</span>
                     <span class="nav-label">服务器</span>
                 </li>
                 <li class="nav-item" data-tab="rooms">
+                    <span class="nav-icon">◎</span>
                     <span class="nav-label">房间发现</span>
                 </li>
                 <li class="nav-item" data-tab="mods">
+                    <span class="nav-icon">◫</span>
                     <span class="nav-label">模组管理</span>
                 </li>
                 <li class="nav-item" data-tab="settings">
+                    <span class="nav-icon">⚙</span>
                     <span class="nav-label">设置</span>
                 </li>
             </ul>
+
             <div class="sidebar-footer">
-                <button class="btn btn-primary btn-block" id="btnLaunchGame">启动游戏</button>
+                <button class="btn btn-block" id="btnLaunchGame">启动游戏</button>
                 <div class="status-indicator" id="statusIndicator">
                     <span class="status-dot offline"></span>
                     <span class="status-text">未连接</span>
@@ -37,25 +45,45 @@
             </div>
         </nav>
 
-        <!-- 主内容区 -->
+        <!-- ========================================== -->
+        <!-- 主内容区                                   -->
+        <!-- ========================================== -->
         <main class="content">
+
             <!-- ========== 服务器控制面板 ========== -->
             <section class="tab-panel active" id="panel-server">
-                <h2 class="panel-title">服务器控制</h2>
+
+                <!-- 状态 Hero -->
+                <div class="status-hero" id="statusHero">
+                    <div class="status-hero-indicator offline" id="heroIndicator">
+                        <span class="status-hero-dot"></span>
+                    </div>
+                    <div class="status-hero-info">
+                        <div class="status-hero-title" id="heroTitle">服务器未启动</div>
+                        <div class="status-hero-subtitle" id="heroSubtitle">选择模式以开始</div>
+                        <div class="status-hero-meta">
+                            <span>模式 <span class="val" id="heroMode">本地</span></span>
+                            <span>端口 <span class="val">5231</span></span>
+                        </div>
+                    </div>
+                </div>
 
                 <!-- 模式选择 -->
-                <div class="card">
+                <div class="card card-accent">
                     <h3 class="card-title">运行模式</h3>
                     <div class="mode-selector">
                         <button class="btn btn-mode active" data-mode="local">
+                            <span class="mode-icon">⬡</span>
                             <span class="mode-name">本地模式</span>
                             <span class="mode-desc">自娱自乐</span>
                         </button>
                         <button class="btn btn-mode" data-mode="lan">
+                            <span class="mode-icon">⬢</span>
                             <span class="mode-name">局域网模式</span>
                             <span class="mode-desc">好友联机</span>
                         </button>
                         <button class="btn btn-mode" data-mode="remote">
+                            <span class="mode-icon">⎔</span>
                             <span class="mode-name">远程转发</span>
                             <span class="mode-desc">连接远程服</span>
                         </button>
@@ -85,8 +113,8 @@
                     </div>
                 </div>
 
-                <!-- 控制按钮 -->
-                <div class="card">
+                <!-- 控制按钮 — 紧凑卡片 -->
+                <div class="card card-compact">
                     <div class="btn-row">
                         <button class="btn btn-accent btn-lg" id="btnStartServer">启动服务器</button>
                         <button class="btn btn-danger btn-lg" id="btnStopServer" disabled>停止服务器</button>
@@ -105,10 +133,10 @@
             <!-- ========== 房间发现面板 ========== -->
             <section class="tab-panel" id="panel-rooms">
                 <h2 class="panel-title">房间发现</h2>
-                <div class="card">
+                <div class="card card-compact">
                     <div class="btn-row">
                         <button class="btn btn-accent" id="btnScanRooms">扫描局域网房间</button>
-                        <button class="btn btn-outline" id="btnStopScan" disabled>停止扫描</button>
+                        <button class="btn btn-ghost" id="btnStopScan" disabled>停止扫描</button>
                     </div>
                 </div>
                 <div class="card">
@@ -122,10 +150,10 @@
             <!-- ========== 模组管理面板 ========== -->
             <section class="tab-panel" id="panel-mods">
                 <h2 class="panel-title">模组管理</h2>
-                <div class="card">
+                <div class="card card-compact">
                     <div class="btn-row">
                         <button class="btn btn-accent" id="btnScanMods">扫描模组</button>
-                        <button class="btn btn-outline" id="btnInstallMod">安装模组</button>
+                        <button class="btn btn-ghost" id="btnInstallMod">安装模组</button>
                     </div>
                 </div>
                 <div class="card">
@@ -142,8 +170,10 @@
                 <div class="card">
                     <h3 class="card-title">关于</h3>
                     <div class="about-info">
-                        <p>KLink — KARDS 私服启动器</p>
+                        <p>KLink — KARDS 本地联机工具</p>
                         <p id="versionInfo">版本: ---</p>
+                        <p class="about-author">作者: bilibili@氧化铜依旧CuO</p>
+                        <p class="about-thanks">特别感谢: 阿伟</p>
                     </div>
                 </div>
             </section>
