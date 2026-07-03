@@ -1668,3 +1668,112 @@ input[type="color"]::-webkit-color-swatch {
 .collapse-body.open {
     display: block;
 }
+
+/* ============================================================
+   IMMERSIVE MODE — 专注模式
+   隐藏 UI 只保留启动游戏按钮，双击恢复
+   ============================================================ */
+
+/* ---- 进入专注模式的触发按钮 ---- */
+.focus-toggle {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 100;
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: var(--text-tertiary);
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all var(--duration-base) var(--ease-out);
+    -webkit-tap-highlight-color: transparent;
+}
+
+.focus-toggle:hover {
+    background: rgba(255,255,255,0.12);
+    border-color: rgba(255,255,255,0.25);
+    color: var(--text-primary);
+    box-shadow: 0 0 16px rgba(0,0,0,0.4);
+}
+
+/* ---- 专注模式下隐藏触发按钮 ---- */
+body.immersive .focus-toggle {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* ---- 专注模式：侧边栏滑出 ---- */
+body.immersive .sidebar {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s var(--ease-out), transform 0.5s var(--ease-out);
+    transform: translateX(-30px);
+}
+
+/* ---- 专注模式：主内容区淡出 ---- */
+body.immersive .content {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s var(--ease-out);
+}
+
+/* ---- 专注模式：启动游戏按钮放大居中 ---- */
+body.immersive #btnLaunchGame {
+    position: fixed;
+    bottom: 50%;
+    left: 50%;
+    transform: translate(-50%, 50%);
+    z-index: 101;
+    width: auto;
+    min-width: 200px;
+    padding: 18px 40px;
+    font-size: 18px;
+    letter-spacing: 4px;
+    border-radius: var(--radius-lg);
+    opacity: 0.92;
+    transition: all 0.6s var(--ease-out);
+    box-shadow: 0 0 48px rgba(158, 217, 204, 0.2);
+    animation: focusPulse 4s ease-in-out infinite;
+}
+
+@keyframes focusPulse {
+    0%, 100% { box-shadow: 0 0 48px rgba(158, 217, 204, 0.2); }
+    50%      { box-shadow: 0 0 72px rgba(158, 217, 204, 0.35); }
+}
+
+/* ---- 专注模式：双击提示 ---- */
+.focus-hint {
+    position: fixed;
+    bottom: 30%;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 102;
+    pointer-events: none;
+    font-family: var(--font-mono);
+    font-size: var(--fs-caption);
+    color: rgba(255,255,255,0.4);
+    letter-spacing: 2px;
+    opacity: 0;
+    transition: opacity 0.8s var(--ease-out);
+}
+
+body.immersive .focus-hint.show {
+    opacity: 1;
+}
+
+/* ---- 专注模式下背景视频/图片保持可见 ---- */
+body.immersive #theme-bg-overlay,
+body.immersive #theme-bg-video {
+    opacity: 1 !important;
+}
+
+/* 布局模式适配：顶栏/底栏模式下侧边栏同样滑出 */
+body.immersive.layout-tabs-top .sidebar,
+body.immersive.layout-tabs-bottom .sidebar {
+    transform: translateY(-30px);
+}
