@@ -606,8 +606,6 @@ const ThemeEngine = (function() {
         bound.id = 'theme-ui-bound';
         document.head.appendChild(bound);
 
-        try {
-
         // — 渲染预设卡片 —
         const presetGrid = $('#presetGrid');
         if (presetGrid) {
@@ -965,10 +963,6 @@ const ThemeEngine = (function() {
 
         // 初始刷新
         refreshUI();
-
-        } catch(e) {
-            // bindUI 内部任何错误不影响其他模块
-        }
     }
 
     function escAttr(str) {
