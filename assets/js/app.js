@@ -20,6 +20,15 @@
     window.onKLinkReady = function() {
         if (_readyCalled) return;
         _readyCalled = true;
+
+        // 诊断：检测模块是否加载成功
+        var missing = [];
+        if (typeof ThemeEngine === 'undefined') missing.push('主题');
+        if (typeof LayoutEngine === 'undefined') missing.push('布局');
+        if (missing.length && window.KLink && window.KLink.showToast) {
+            window.KLink.showToast('模块加载失败: ' + missing.join(', '));
+        }
+
         try { if (typeof LayoutEngine !== 'undefined') LayoutEngine.init(); } catch(e) {}
         try { if (typeof ThemeEngine !== 'undefined') ThemeEngine.init(); } catch(e) {}
         try { loadVersion(); } catch(e) {}
@@ -140,8 +149,14 @@
         if (tabId === 'mods') scanMods();
         if (tabId === 'server') refreshStatus();
         if (tabId === 'theme') {
-            ThemeEngine.bindUI();
-            LayoutEngine.bindUI();
+            if (typeof ThemeEngine !== 'undefined' && ThemeEngine.bindUI) {
+                ThemeEngine.bindUI();
+            } else if (window.KLink && window.KLink.showToast) {
+                window.KLink.showToast('主题模块加载失败');
+            }
+            if (typeof LayoutEngine !== 'undefined' && LayoutEngine.bindUI) {
+                LayoutEngine.bindUI();
+            }
         }
     }
 
