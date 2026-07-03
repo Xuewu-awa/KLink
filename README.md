@@ -84,24 +84,6 @@ source/
 
 ---
 
-## 构建
-
-```bash
-cd builder
-sh build.sh       # Linux / macOS
-# 或 build.bat    # Windows
-```
-
-**依赖**：JDK 8+、Android SDK build-tools（d8 或 dx）
-
-输出：`builder/build/classes2.dex`
-
-注入 APK 时将此文件替换为 `classes2.dex`，并将 `assets/` 和 `res/` 放入 APK 根目录。
-
-详见 [`builder/README.md`](../builder/README.md)。
-
----
-
 ## 主题系统
 
 侧边栏「主题」面板支持实时自定义：
@@ -114,6 +96,14 @@ sh build.sh       # Linux / macOS
 - **导出/导入** — JSON 文件保存/分享/导入，一键恢复默认
 
 所有设置自动保存到 `localStorage`，重启不丢失。
+
+---
+
+## 相关项目
+
+本项目 Java 版服务器核心逻辑移植自 Go 语言实现：
+
+👉 [kardswalker/kards-server-go](https://github.com/kardswalker/kards-server-go)
 
 ---
 
