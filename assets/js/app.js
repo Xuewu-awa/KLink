@@ -17,10 +17,11 @@
 
     // ==================== 初始化 ====================
     window.onKLinkReady = function() {
-        LayoutEngine.init();
-        ThemeEngine.init();
-        loadVersion();
-        bindEvents();
+        // 逐个初始化，单个模块失败不影响其他
+        try { if (typeof LayoutEngine !== 'undefined') LayoutEngine.init(); } catch(e) {}
+        try { if (typeof ThemeEngine !== 'undefined') ThemeEngine.init(); } catch(e) {}
+        try { loadVersion(); } catch(e) {}
+        try { bindEvents(); } catch(e) {}
     };
 
     // 从 Java 恢复已保存的设置
