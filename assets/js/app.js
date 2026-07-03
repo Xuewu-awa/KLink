@@ -17,6 +17,7 @@
 
     // ==================== 初始化 ====================
     window.onKLinkReady = function() {
+        LayoutEngine.init();
         ThemeEngine.init();
         loadVersion();
         bindEvents();
@@ -71,7 +72,10 @@
         // 自动加载对应数据
         if (tabId === 'mods') scanMods();
         if (tabId === 'server') refreshStatus();
-        if (tabId === 'theme') ThemeEngine.bindUI();
+        if (tabId === 'theme') {
+            ThemeEngine.bindUI();
+            LayoutEngine.bindUI();
+        }
     }
 
     // ==================== 模式切换 ====================

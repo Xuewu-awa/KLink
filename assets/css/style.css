@@ -1316,3 +1316,237 @@ input[type="color"]::-webkit-color-swatch {
     color: var(--text-secondary);
     letter-spacing: 1px;
 }
+
+/* ============================================================
+   LAYOUT MODES — 布局模式切换
+   ============================================================ */
+
+/* ---- 默认：侧边栏左（无需额外样式） ---- */
+.layout-sidebar-left .app {
+    flex-direction: row;
+}
+
+/* ---- 顶部标签栏 ---- */
+.layout-tabs-top .app {
+    flex-direction: column;
+}
+.layout-tabs-top .sidebar {
+    width: 100%;
+    min-width: 100%;
+    flex-direction: row;
+    align-items: center;
+    border-right: none;
+    border-bottom: 1px solid var(--hairline);
+    padding: 0;
+    max-height: 48px;
+}
+.layout-tabs-top .sidebar::after {
+    display: none;
+}
+.layout-tabs-top .sidebar-header {
+    display: none;
+}
+.layout-tabs-top .nav-list {
+    flex-direction: row;
+    padding: 0;
+    gap: 0;
+    flex: 1;
+    overflow-x: auto;
+}
+.layout-tabs-top .nav-item {
+    flex-shrink: 0;
+    white-space: nowrap;
+    padding: 12px 16px;
+    margin: 0;
+    border-radius: 0;
+    border-left: none;
+    border-bottom: 2px solid transparent;
+    font-size: var(--fs-caption);
+}
+.layout-tabs-top .nav-item.active {
+    border-bottom-color: var(--accent);
+    border-left: none;
+}
+.layout-tabs-top .sidebar-footer {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    border-top: none;
+    padding: 0 12px 0 0;
+    flex-shrink: 0;
+}
+.layout-tabs-top .sidebar-footer .btn {
+    font-size: var(--fs-caption);
+    padding: 6px 14px;
+}
+.layout-tabs-top .status-indicator {
+    margin-top: 0;
+    padding: 0;
+}
+.layout-tabs-top .content {
+    padding-top: var(--space-md);
+}
+
+/* ---- 底部导航栏 ---- */
+.layout-tabs-bottom .app {
+    flex-direction: column-reverse;
+}
+.layout-tabs-bottom .sidebar {
+    width: 100%;
+    min-width: 100%;
+    flex-direction: row;
+    align-items: center;
+    border-right: none;
+    border-top: 1px solid var(--hairline);
+    padding: 0;
+    max-height: 52px;
+}
+.layout-tabs-bottom .sidebar::after {
+    display: none;
+}
+.layout-tabs-bottom .sidebar-header {
+    display: none;
+}
+.layout-tabs-bottom .nav-list {
+    flex-direction: row;
+    padding: 0;
+    gap: 0;
+    flex: 1;
+    justify-content: space-around;
+}
+.layout-tabs-bottom .nav-item {
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 8px;
+    margin: 0;
+    border-radius: 0;
+    border-left: none;
+    border-top: 2px solid transparent;
+    font-size: 9px;
+    text-align: center;
+}
+.layout-tabs-bottom .nav-item.active {
+    border-top-color: var(--accent);
+    border-left: none;
+}
+.layout-tabs-bottom .nav-icon {
+    font-size: 16px;
+    width: auto;
+}
+.layout-tabs-bottom .sidebar-footer {
+    display: none;
+}
+.layout-tabs-bottom .content {
+    padding-bottom: var(--space-sm);
+}
+
+/* 小屏：顶栏/底栏模式下进一步精简 */
+@media (max-width: 480px) {
+    .layout-tabs-top .nav-item {
+        padding: 10px 10px;
+        font-size: 10px;
+    }
+    .layout-tabs-bottom .nav-item {
+        padding: 4px 6px;
+    }
+}
+
+/* ============================================================
+   LAYOUT PANEL — 布局自定义面板样式
+   ============================================================ */
+
+/* ---- 导航排序列表 ---- */
+.nav-order-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.nav-order-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: 8px 10px;
+    background: rgba(0,0,0,0.2);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: var(--radius-sm);
+}
+
+.nav-order-grip {
+    color: var(--text-disabled);
+    font-size: 14px;
+    flex-shrink: 0;
+    cursor: grab;
+}
+
+.nav-order-label {
+    flex: 1;
+    font-size: var(--fs-body);
+    color: var(--text-secondary);
+    letter-spacing: 0.5px;
+}
+
+.nav-order-btn {
+    width: 28px; height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: var(--radius-sm);
+    color: var(--text-tertiary);
+    font-size: 10px;
+    cursor: pointer;
+    transition: all var(--duration-fast) var(--ease-out);
+}
+
+.nav-order-btn:hover {
+    background: rgba(255,255,255,0.08);
+    color: var(--text-primary);
+}
+
+.nav-order-btn.disabled,
+.nav-order-btn:disabled {
+    opacity: 0.25;
+    pointer-events: none;
+}
+
+.nav-order-btn.nav-order-eye.off {
+    color: var(--text-disabled);
+}
+
+/* ---- 自定义 CSS 文本框 ---- */
+#inputCustomCss {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    line-height: 1.5;
+    min-height: 80px;
+    resize: vertical;
+}
+
+/* ---- 折叠卡片 ---- */
+.collapse-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    user-select: none;
+}
+
+.collapse-toggle .collapse-arrow {
+    transition: transform var(--duration-base) var(--ease-out);
+    font-size: 10px;
+    color: var(--text-tertiary);
+}
+
+.collapse-toggle.open .collapse-arrow {
+    transform: rotate(90deg);
+}
+
+.collapse-body {
+    display: none;
+}
+
+.collapse-body.open {
+    display: block;
+}

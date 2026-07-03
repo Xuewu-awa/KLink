@@ -277,6 +277,43 @@
                         <button class="btn btn-sm btn-ghost" id="btnApplyPasted" style="margin-top:6px;">应用粘贴的主题</button>
                     </div>
                 </div>
+                <!-- ===== 布局自定义 ===== -->
+                <div class="card" style="margin-top: var(--space-lg);">
+                    <h3 class="card-title">布局</h3>
+
+                    <div class="theme-section-title">布局模式</div>
+                    <div class="option-row" id="layoutModeRow">
+                        <button class="option-btn active" data-layout-mode="sidebar-left">侧边栏</button>
+                        <button class="option-btn" data-layout-mode="tabs-top">顶部标签</button>
+                        <button class="option-btn" data-layout-mode="tabs-bottom">底部导航</button>
+                    </div>
+
+                    <div class="theme-section-title" style="margin-top: var(--space-md);">导航排序</div>
+                    <div class="nav-order-list" id="navOrderList"></div>
+
+                    <div class="collapse-toggle" id="collapseCssToggle" style="margin-top: var(--space-md);">
+                        <span class="theme-section-title" style="margin:0;">自定义 CSS（高级）</span>
+                        <span class="collapse-arrow">▶</span>
+                    </div>
+                    <div class="collapse-body" id="collapseCssBody">
+                        <textarea class="input" id="inputCustomCss" rows="5"
+                            placeholder="/* 在这里粘贴自定义 CSS，会覆盖默认样式 */&#10;.sidebar { background: red; }"
+                            style="width:100%; resize:vertical; font-family: var(--font-mono); font-size:10px; min-height:80px; margin-top: var(--space-sm);"></textarea>
+                    </div>
+
+                    <div class="theme-actions" style="margin-top: var(--space-md);">
+                        <button class="btn btn-accent btn-sm" id="btnExportLayout">导出布局</button>
+                        <button class="btn btn-ghost btn-sm" id="btnImportLayout">导入布局</button>
+                        <button class="btn btn-ghost btn-sm" id="btnResetLayout">恢复默认</button>
+                    </div>
+                    <input type="file" id="inputImportLayoutFile" accept=".json" style="display:none;">
+                    <div style="margin-top: var(--space-sm);">
+                        <textarea class="input" id="inputImportLayoutJson" rows="2"
+                            placeholder="或粘贴布局 JSON..."
+                            style="width:100%; resize:vertical; font-size:10px; min-height:44px;"></textarea>
+                        <button class="btn btn-sm btn-ghost" id="btnApplyPastedLayout" style="margin-top:4px;">应用粘贴的布局</button>
+                    </div>
+                </div>
             </section>
 
             <!-- ========== 设置面板 ========== -->
@@ -296,6 +333,7 @@
     </div>
 
     <script src="js/theme.js"></script>
+    <script src="js/layout.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>
