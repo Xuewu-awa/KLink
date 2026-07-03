@@ -206,6 +206,7 @@ const ThemeEngine = (function() {
                 overlay.style.filter = `blur(${bg.imageBlur || '0px'})`;
                 overlay.style.backdropFilter = 'none';
             }
+        }
         // 背景视频
         const existingVideo = document.getElementById('theme-bg-video');
         if (bg.type === 'video' && bg.videoUrl) {
@@ -859,7 +860,7 @@ const ThemeEngine = (function() {
                 applyTheme(current);
                 save();
             });
-        });
+        }
 
         // — 间距选择 —
         $$('#spacingRow .option-btn').forEach(btn => {
