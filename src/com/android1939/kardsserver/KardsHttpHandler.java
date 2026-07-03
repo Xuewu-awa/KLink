@@ -1266,7 +1266,7 @@ public final class KardsHttpHandler implements SimpleHttpServer.Handler {
             options.put("new_effect_bar_pc", 1);
             options.put("new_effect_icons", 1);
             options.put("feature_socketerror_popup_enabled", 1);
-            options.put("versions", stringArray(new String[]{"Kards 1.47", "Kards 1.49", "Kards 1.50", "Kards 1.52", "Kards 1.52.25476.launcher"}));
+            options.put("versions", stringArray(new String[]{"Kards 1.47", "Kards 1.49", "Kards 1.50", "Kards 1.52", "Kards 1.52.25476.launcher", "Kards 1.53", "Kards 1.54", "Kards 1.55", "Kards 1.56"}));
             JSONArray locked = new JSONArray();
             locked.put(new JSONObject()
                     .put("cards", stringArray(new String[]{
