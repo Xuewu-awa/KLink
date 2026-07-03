@@ -16,13 +16,20 @@
     let foundRooms = {};
 
     // ==================== 初始化 ====================
+    var _readyCalled = false;
     window.onKLinkReady = function() {
-        // 逐个初始化，单个模块失败不影响其他
+        if (_readyCalled) return;
+        _readyCalled = true;
         try { if (typeof LayoutEngine !== 'undefined') LayoutEngine.init(); } catch(e) {}
         try { if (typeof ThemeEngine !== 'undefined') ThemeEngine.init(); } catch(e) {}
         try { loadVersion(); } catch(e) {}
         try { bindEvents(); } catch(e) {}
     };
+
+    // 兜底：如果 Java 端 2 秒内没调 onKLinkReady，JS 自己初始化
+    setTimeout(function() {
+        if (!_readyCalled) window.onKLinkReady();
+    }, 2000);
 
     // 从 Java 恢复已保存的设置
     window.onSettingsRestored = function(settings) {
