@@ -901,9 +901,52 @@ body::after {
 }
 
 /* ============================================================
-   RESPONSIVE — 手机适配
+   RESPONSIVE — 多分辨率适配
    ============================================================ */
 
+/* ---- 小平板 / 大手机 (≥ 768px) ---- */
+@media (min-width: 768px) {
+    .content {
+        padding: var(--space-2xl) var(--space-xl);
+    }
+    .card {
+        max-width: 720px;
+    }
+    .status-hero {
+        max-width: 720px;
+    }
+    .mode-selector {
+        max-width: 600px;
+    }
+    .color-group {
+        grid-template-columns: 1fr 1fr 1fr;
+    }
+    .preset-grid {
+        grid-template-columns: repeat(5, 1fr);
+    }
+}
+
+/* ---- 平板 (≥ 1024px) ---- */
+@media (min-width: 1024px) {
+    .sidebar {
+        width: 240px;
+        min-width: 240px;
+    }
+    .content {
+        padding: var(--space-2xl) 40px;
+    }
+    .card {
+        max-width: 800px;
+    }
+    .status-hero {
+        max-width: 800px;
+    }
+    .preset-grid {
+        grid-template-columns: repeat(5, 1fr);
+    }
+}
+
+/* ---- 普通手机 (≤ 480px) ---- */
 @media (max-width: 480px) {
     .sidebar {
         width: 56px;
@@ -945,6 +988,55 @@ body::after {
     }
     .btn-row {
         flex-direction: column;
+    }
+    .color-group {
+        grid-template-columns: 1fr;
+    }
+    .preset-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+/* ---- 小屏手机 (≤ 360px) ---- */
+@media (max-width: 360px) {
+    .status-hero-title {
+        font-size: 20px;
+    }
+    .status-hero {
+        padding: var(--space-md);
+    }
+    .status-hero-indicator {
+        width: 36px;
+        height: 36px;
+    }
+    .panel-title {
+        font-size: var(--fs-heading);
+    }
+    .card {
+        padding: var(--space-md);
+    }
+    .btn-lg {
+        padding: 12px 16px;
+        font-size: var(--fs-body);
+    }
+    .preset-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .mode-selector {
+        gap: 4px;
+    }
+    .btn-mode {
+        padding: 12px 8px;
+    }
+    .mode-icon {
+        font-size: 18px;
+    }
+    .mode-name {
+        font-size: 11px;
+    }
+    .console {
+        max-height: 120px;
+        font-size: 10px;
     }
 }
 
@@ -1440,7 +1532,9 @@ input[type="color"]::-webkit-color-swatch {
     padding-bottom: var(--space-sm);
 }
 
-/* 小屏：顶栏/底栏模式下进一步精简 */
+/* 布局模式 × 分辨率联合适配 */
+
+/* 小屏手机：顶栏/底栏精简 */
 @media (max-width: 480px) {
     .layout-tabs-top .nav-item {
         padding: 10px 10px;
@@ -1448,6 +1542,30 @@ input[type="color"]::-webkit-color-swatch {
     }
     .layout-tabs-bottom .nav-item {
         padding: 4px 6px;
+        font-size: 8px;
+    }
+    .layout-tabs-bottom .nav-icon {
+        font-size: 14px;
+    }
+}
+
+/* 平板以上：顶栏标签可容纳更多内容 */
+@media (min-width: 768px) {
+    .layout-tabs-top .nav-item {
+        padding: 14px 24px;
+        font-size: var(--fs-body);
+    }
+    .layout-tabs-top .sidebar {
+        max-height: 52px;
+    }
+}
+
+/* 大平板：侧边栏模式下卡片居中更舒适 */
+@media (min-width: 1024px) {
+    .layout-sidebar-left .content {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
     }
 }
 
