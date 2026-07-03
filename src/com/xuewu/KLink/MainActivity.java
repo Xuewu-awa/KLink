@@ -30,6 +30,7 @@ public class MainActivity extends Activity {
     private static final int THEME_FILE_SELECT_CODE = 101;
     private static final int THEME_SAVE_CODE = 102;
     private static final int BG_IMAGE_SELECT_CODE = 103;
+    private static final int BG_VIDEO_SELECT_CODE = 104;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -87,6 +88,23 @@ public class MainActivity extends Activity {
             }
 
             @Override
+            public android.webkit.WebResourceResponse shouldInterceptRequest(WebView view,
+                    String url) {
+                // 拦截 klink-video://bg → 返回缓存的背景视频文件
+                if ("klink-video://bg".equals(url)) {
+                    try {
+                        java.io.File videoFile = new java.io.File(getCacheDir(), "bg_video.mp4");
+                        if (videoFile.exists()) {
+                            java.io.FileInputStream in = new java.io.FileInputStream(videoFile);
+                            return new android.webkit.WebResourceResponse(
+                                    "video/mp4", null, in);
+                        }
+                    } catch (Exception ignored) {}
+                }
+                return super.shouldInterceptRequest(view, url);
+            }
+
+            @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
                 if (url.startsWith("http://") || url.startsWith("https://")) {
                     Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
@@ -141,6 +159,16 @@ public class MainActivity extends Activity {
         startActivityForResult(intent, BG_IMAGE_SELECT_CODE);
     }
 
+    /**
+     * 打开视频选择器，用于选取背景视频。
+     */
+    public void pickVideoFile() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("video/*");
+        startActivityForResult(intent, BG_VIDEO_SELECT_CODE);
+    }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -161,6 +189,9 @@ public class MainActivity extends Activity {
                 break;
             case BG_IMAGE_SELECT_CODE:
                 bridge.onBgImagePicked(uri);
+                break;
+            case BG_VIDEO_SELECT_CODE:
+                bridge.onBgVideoPicked(uri);
                 break;
         }
     }

@@ -202,6 +202,7 @@
                         <button class="bg-option active" data-type="solid">纯色</button>
                         <button class="bg-option" data-type="gradient">渐变</button>
                         <button class="bg-option" data-type="image">图片</button>
+                        <button class="bg-option" data-type="video">视频</button>
                     </div>
                     <div class="bg-preview" id="bgPreview">
                         <span class="bg-preview-label" id="bgPreviewLabel">纯色</span>
@@ -230,6 +231,15 @@
                             <input type="range" id="rangeBgOpacity" min="3" max="100" value="12">
                             <span class="range-val" id="valBgOpacity">12%</span>
                         </div>
+                    </div>
+
+                    <div id="bgVideoRow" style="display:none;">
+                        <div class="bg-image-row">
+                            <input type="text" class="input" id="inputBgVideoUrl" placeholder="视频 URL（远程链接或 klink-video://bg）">
+                            <button class="btn btn-sm btn-ghost" id="btnBgVideoFile">📁</button>
+                        </div>
+                        <input type="file" id="inputBgVideoFile" accept="video/*" style="display:none;">
+                        <p style="font-size:10px;color:var(--text-tertiary);margin-top:4px;">本地视频会复制到缓存，上限 50MB。导出时只存引用。</p>
                     </div>
                 </div>
 

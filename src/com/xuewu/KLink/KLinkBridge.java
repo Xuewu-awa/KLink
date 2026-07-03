@@ -315,6 +315,56 @@ public class KLinkBridge {
         return modManager.scanMods();
     }
 
+    // ==================== 背景视频选取 ====================
+
+    /**
+     * 选取背景视频 — 打开系统视频选择器。
+     */
+    @JavascriptInterface
+    public void pickBgVideoFile() {
+        activity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                if (activity instanceof MainActivity) {
+                    ((MainActivity) activity).pickVideoFile();
+                }
+            }
+        });
+    }
+
+    /**
+     * 用户选好视频后的回调 — 复制到缓存目录，通过 klink-video://bg 加载。
+     */
+    public void onBgVideoPicked(final Uri uri) {
+        try {
+            // 复制视频到缓存目录
+            java.io.File cacheDir = activity.getCacheDir();
+            java.io.File videoFile = new java.io.File(cacheDir, "bg_video.mp4");
+            java.io.InputStream in = activity.getContentResolver().openInputStream(uri);
+            if (in == null) {
+                emitError("无法读取视频");
+                return;
+            }
+            java.io.FileOutputStream out = new java.io.FileOutputStream(videoFile);
+            byte[] buf = new byte[65536];
+            int n;
+            long total = 0;
+            while ((n = in.read(buf)) != -1) {
+                out.write(buf, 0, n);
+                total += n;
+                if (total > 50 * 1024 * 1024) break; // 上限 50MB
+            }
+            in.close();
+            out.flush();
+            out.close();
+
+            // 回调前端使用 klink-video://bg
+            evalJs("if(window.onBgVideoLoaded) window.onBgVideoLoaded('klink-video://bg');");
+        } catch (Exception e) {
+            emitError("读取视频失败: " + e.getMessage());
+        }
+    }
+
     // ==================== 主题导入导出 ====================
 
     /** 暂存待写入的主题 JSON，等用户选好保存位置后写入 */

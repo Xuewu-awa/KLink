@@ -29,13 +29,14 @@ const ThemeEngine = (function() {
             success:       '#7ec99c'
         },
         background: {
-            type: 'solid',       // 'solid' | 'gradient' | 'image'
+            type: 'solid',       // 'solid' | 'gradient' | 'image' | 'video'
             value: '#050508',
             gradient: 'linear-gradient(160deg, #050508 0%, #0a0a10 50%, #06060c 100%)',
             imageUrl: '',
             imageOpacity: 0.12,
             imageBlur: '0px',
-            blend: 'normal'       // 'opaque' | 'normal' | 'frosted'
+            blend: 'normal',      // 'opaque' | 'normal' | 'frosted'
+            videoUrl: ''
         },
         spacing: 'comfortable',  // 'compact' | 'comfortable' | 'spacious'
         radius: 'rounded',       // 'sharp' | 'rounded' | 'pill'
@@ -205,7 +206,33 @@ const ThemeEngine = (function() {
                 overlay.style.filter = `blur(${bg.imageBlur || '0px'})`;
                 overlay.style.backdropFilter = 'none';
             }
-        } else if (existingOverlay) {
+        // 背景视频
+        const existingVideo = document.getElementById('theme-bg-video');
+        if (bg.type === 'video' && bg.videoUrl) {
+            if (!existingVideo) {
+                const video = document.createElement('video');
+                video.id = 'theme-bg-video';
+                video.autoplay = true;
+                video.loop = true;
+                video.muted = true;
+                video.playsInline = true;
+                video.style.cssText = `
+                    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+                    object-fit: cover; width: 100%; height: 100%;
+                `;
+                document.body.prepend(video);
+            }
+            const video = document.getElementById('theme-bg-video');
+            video.src = bg.videoUrl;
+            video.style.opacity = bg.imageOpacity || 0.5;
+            video.play().catch(function(){});
+        } else if (existingVideo) {
+            existingVideo.pause();
+            existingVideo.remove();
+        }
+
+        // 清理图片 overlay（视频和图片互斥）
+        if (bg.type === 'video' && existingOverlay) {
             existingOverlay.remove();
         }
 
@@ -495,6 +522,10 @@ const ThemeEngine = (function() {
             });
             $('#bgGradientRow').style.display = (bgType === 'gradient') ? 'block' : 'none';
             $('#bgImageRow').style.display = (bgType === 'image') ? 'block' : 'none';
+            $('#bgVideoRow').style.display = (bgType === 'video') ? 'block' : 'none';
+            if (bgType === 'video') {
+                $('#inputBgVideoUrl').value = theme.background.videoUrl || '';
+            }
             if (bgType === 'gradient') {
                 $('#inputBgGradient').value = theme.background.gradient || '';
             }
@@ -558,6 +589,10 @@ const ThemeEngine = (function() {
                 preview.style.backgroundColor = bg.value || theme.colors.bgDeep;
                 preview.style.backgroundImage = `url(${bg.imageUrl})`;
                 label.textContent = '图片';
+            } else if (bg.type === 'video' && bg.videoUrl) {
+                preview.style.backgroundImage = 'none';
+                preview.style.backgroundColor = theme.colors.bgDeep;
+                label.textContent = '视频';
             } else {
                 preview.style.backgroundImage = 'none';
                 preview.style.backgroundColor = theme.colors.bgDeep;
@@ -667,6 +702,7 @@ const ThemeEngine = (function() {
 
                 $('#bgGradientRow').style.display = (type === 'gradient') ? 'block' : 'none';
                 $('#bgImageRow').style.display = (type === 'image') ? 'block' : 'none';
+                $('#bgVideoRow').style.display = (type === 'video') ? 'block' : 'none';
 
                 const current = getCurrent();
                 current.background.type = type;
@@ -730,6 +766,48 @@ const ThemeEngine = (function() {
         // Java 桥回调 — 用户选好背景图片
         window.onBgImageLoaded = function(dataUri) {
             applyBgImageUrl(dataUri);
+        };
+
+        // — 视频 URL 输入 —
+        const inputBgVideoUrl = $('#inputBgVideoUrl');
+        if (inputBgVideoUrl) {
+            inputBgVideoUrl.addEventListener('input', function() {
+                const current = getCurrent();
+                current.background.videoUrl = this.value;
+                applyTheme(current);
+                save();
+                updateBgPreview();
+            });
+        }
+
+        // — 视频文件选择 —
+        $('#btnBgVideoFile').addEventListener('click', function() {
+            if (window.KLink && window.KLink.pickBgVideoFile) {
+                window.KLink.pickBgVideoFile();
+            } else {
+                $('#inputBgVideoFile').click();
+            }
+        });
+        $('#inputBgVideoFile').addEventListener('change', function() {
+            const file = this.files[0];
+            if (!file) return;
+            const url = URL.createObjectURL(file);
+            $('#inputBgVideoUrl').value = url;
+            const current = getCurrent();
+            current.background.videoUrl = url;
+            applyTheme(current);
+            save();
+            updateBgPreview();
+        });
+
+        // Java 桥回调 — 用户选好背景视频
+        window.onBgVideoLoaded = function(videoUri) {
+            $('#inputBgVideoUrl').value = videoUri;
+            const current = getCurrent();
+            current.background.videoUrl = videoUri;
+            applyTheme(current);
+            save();
+            updateBgPreview();
         };
 
         // — 透明度模式 —
