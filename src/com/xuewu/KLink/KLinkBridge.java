@@ -50,6 +50,7 @@ public class KLinkBridge {
     private static final String KEY_HOST_NAME = "host_name";
     private static final String KEY_REMOTE_ADDR = "remote_address";
     private static final String KEY_REMOTE_PORT = "remote_port";
+    private static final String KEY_JWT_SECRET = "jwt_secret";
 
     public KLinkBridge(Activity activity, WebView webView) {
         this.activity = activity;
@@ -674,9 +675,21 @@ public class KLinkBridge {
         cfg.wsPort = 5232;
         cfg.roomName = json.optString("roomName", "KARDS Room");
         cfg.hostName = json.optString("hostName", "Host");
-        // adminToken 可让房主踢人
         cfg.adminToken = json.optString("adminToken", "");
         cfg.preferredPlayerName = json.optString("preferredPlayerName", "");
+
+        // JWT 密钥：首次运行时随机生成并持久化，后续复用
+        // 避免硬编码密钥导致反编译后批量伪造 Token
+        SharedPreferences p = prefs();
+        String secret = p.getString(KEY_JWT_SECRET, null);
+        if (secret == null || secret.isEmpty()) {
+            byte[] randomBytes = new byte[32];
+            new java.security.SecureRandom().nextBytes(randomBytes);
+            secret = android.util.Base64.encodeToString(randomBytes, android.util.Base64.NO_WRAP);
+            p.edit().putString(KEY_JWT_SECRET, secret).apply();
+        }
+        cfg.jwtSecret = secret;
+
         return cfg;
     }
 

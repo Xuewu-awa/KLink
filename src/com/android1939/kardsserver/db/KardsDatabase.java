@@ -3,6 +3,7 @@ package com.android1939.kardsserver.db;
 import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
+import android.util.Base64;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 
@@ -80,18 +81,64 @@ public final class KardsDatabase extends SQLiteOpenHelper {
     public synchronized UserRecord getOrCreateUser(String username, String password) {
         UserRecord existing = findUserByUsername(username);
         if (existing != null) {
+            // 验证密码（即使是本地服务器也应校验，防止冒名登录）
+            if (!verifyPassword(existing.password, password)) {
+                return null;
+            }
             return existing;
         }
         SQLiteDatabase db = getWritableDatabase();
         ContentValues values = new ContentValues();
         values.put("username", username);
-        values.put("password", password == null ? "" : password);
+        values.put("password", hashPassword(password == null ? "" : password));
         values.put("player_name", "<anon>");
         values.put("player_tag", 0);
         values.put("player_jwt", "");
         values.put("created_at", TimeUtil.nowIso());
         long id = db.insertOrThrow("users", null, values);
         return findUserById((int) id);
+    }
+
+    /** 对密码做 SHA-256 + 随机盐哈希，格式为 "base64salt:base64hash" */
+    private static String hashPassword(String password) {
+        try {
+            java.security.SecureRandom rng = new java.security.SecureRandom();
+            byte[] salt = new byte[16];
+            rng.nextBytes(salt);
+            java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
+            md.update(salt);
+            md.update(password.getBytes("UTF-8"));
+            byte[] hash = md.digest();
+            return android.util.Base64.encodeToString(salt, android.util.Base64.NO_WRAP)
+                    + ":" + android.util.Base64.encodeToString(hash, android.util.Base64.NO_WRAP);
+        } catch (Exception e) {
+            // 极端情况回退（理论上 SHA-256 和 UTF-8 总是可用）
+            return ":" + password;
+        }
+    }
+
+    /** 验证密码是否匹配存储的哈希。兼容旧版明文密码（无 ':' 分隔符时直接比较）。 */
+    private static boolean verifyPassword(String stored, String password) {
+        if (stored == null) stored = "";
+        if (password == null) password = "";
+        int sep = stored.indexOf(':');
+        if (sep < 0) {
+            // 旧版明文密码
+            return stored.equals(password);
+        }
+        try {
+            String saltB64 = stored.substring(0, sep);
+            String hashB64 = stored.substring(sep + 1);
+            byte[] salt = android.util.Base64.decode(saltB64, android.util.Base64.NO_WRAP);
+            java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
+            md.update(salt);
+            md.update(password.getBytes("UTF-8"));
+            byte[] hash = md.digest();
+            String expectedB64 = android.util.Base64.encodeToString(hash, android.util.Base64.NO_WRAP);
+            return hashB64.equals(expectedB64);
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     public synchronized UserRecord findUserById(int id) {

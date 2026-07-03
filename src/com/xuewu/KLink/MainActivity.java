@@ -69,13 +69,14 @@ public class MainActivity extends Activity {
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
-        settings.setAllowFileAccess(true);
-        settings.setAllowContentAccess(true);
+        settings.setAllowFileAccess(false);
+        settings.setAllowContentAccess(false);
         settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
         settings.setMediaPlaybackRequiresUserGesture(false);
-        if (Build.VERSION.SDK_INT >= 19) {
-            WebView.setWebContentsDebuggingEnabled(true);
-        }
+        // 仅调试时开启，release 必须关闭（同网段可 Chrome DevTools 控制 WebView）
+        // if (Build.VERSION.SDK_INT >= 19) {
+        //     WebView.setWebContentsDebuggingEnabled(true);
+        // }
 
         webView.setWebViewClient(new WebViewClient() {
             @Override

@@ -55,6 +55,10 @@ public final class MatchManager {
                     if (match.playerRight == userId) {
                         match.rightOnline = false;
                     }
+                    // 已结束的对局在玩家离线时清理
+                    if ("finished".equals(match.status)) {
+                        cleanupMatch(matchId);
+                    }
                 }
             }
         }
@@ -85,7 +89,13 @@ public final class MatchManager {
                 playing.remove(playerId);
                 playerDecks.remove(playerId);
             } else {
-                return false;
+                // 如果旧对局已结束，先清理再允许排新队
+                MatchState existing = matches.get(existingMatchId);
+                if (existing != null && "finished".equals(existing.status)) {
+                    cleanupMatch(existingMatchId);
+                } else {
+                    return false;
+                }
             }
         }
         if (playerDecks.containsKey(playerId) || playerCodes.containsKey(playerId)

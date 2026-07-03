@@ -130,6 +130,7 @@
         serverRunning = running;
         $('#btnStartServer').disabled = running;
         $('#btnStopServer').disabled = !running;
+        $('#btnLaunchGame').disabled = !running;
 
         // — 侧边栏状态 —
         const dot = $('#statusIndicator').querySelector('.status-dot');

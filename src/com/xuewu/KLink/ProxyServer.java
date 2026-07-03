@@ -123,8 +123,9 @@ public final class ProxyServer {
             Thread c2r = forward(client.getInputStream(), remote.getOutputStream(), "C→R");
             Thread r2c = forward(remote.getInputStream(), client.getOutputStream(), "R→C");
 
-            c2r.join();
-            r2c.join();
+            // 最长等待 60 秒，超时后强制关闭（防止单边连接挂起导致线程泄漏）
+            c2r.join(60000);
+            r2c.join(60000);
 
         } catch (Exception ignored) {
             // 连接中断是正常情况（游戏关闭、网络波动等）

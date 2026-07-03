@@ -159,9 +159,10 @@ public final class LanDiscovery {
                 JSONObject msg = new JSONObject(json);
 
                 if (!MESSAGE_TYPE.equals(msg.optString("type"))) continue;
-                if (!packet.getAddress().getHostAddress().equals(getLocalIp())) {
-                    // 过滤掉自己的广播
-                }
+
+                // 过滤掉自己的广播
+                String senderIp = packet.getAddress().getHostAddress();
+                if (senderIp.equals(getLocalIp())) continue;
 
                 // 使用实际来源地址
                 msg.put("address", packet.getAddress().getHostAddress());
