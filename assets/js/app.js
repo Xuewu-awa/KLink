@@ -67,7 +67,14 @@
 
     function enterFocusMode() {
         document.body.classList.add('immersive');
-        const hint = $('#focusHint');
+        // 把启动按钮搬到 body 下，避免被 sidebar 的 visibility 困住
+        var btn = $('#btnLaunchGame');
+        if (btn && btn.parentElement) {
+            btn._klinkParent = btn.parentElement;
+            btn._klinkNext = btn.nextSibling;
+            document.body.appendChild(btn);
+        }
+        var hint = $('#focusHint');
         if (hint) {
             hint.classList.add('show');
             clearTimeout(focusHintTimer);
@@ -80,7 +87,18 @@
 
     function exitFocusMode() {
         document.body.classList.remove('immersive');
-        const hint = $('#focusHint');
+        // 把按钮搬回原位
+        var btn = $('#btnLaunchGame');
+        if (btn && btn._klinkParent) {
+            if (btn._klinkNext) {
+                btn._klinkParent.insertBefore(btn, btn._klinkNext);
+            } else {
+                btn._klinkParent.appendChild(btn);
+            }
+            btn._klinkParent = null;
+            btn._klinkNext = null;
+        }
+        var hint = $('#focusHint');
         if (hint) hint.classList.remove('show');
         clearTimeout(focusTapTimer);
         clearTimeout(focusHintTimer);

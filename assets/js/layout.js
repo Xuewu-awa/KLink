@@ -12,13 +12,6 @@ const LayoutEngine = (function() {
     const DEFAULT_CONFIG = {
         mode: 'sidebar-left',       // 'sidebar-left' | 'tabs-top' | 'tabs-bottom'
         navOrder: ['server', 'rooms', 'mods', 'theme', 'settings'],
-        navVisible: {
-            server: true,
-            rooms: true,
-            mods: true,
-            theme: true,
-            settings: true
-        },
         customCss: ''
     };
 
@@ -52,8 +45,8 @@ const LayoutEngine = (function() {
         body.classList.remove('layout-sidebar-left', 'layout-tabs-top', 'layout-tabs-bottom');
         body.classList.add('layout-' + _config.mode);
 
-        // 导航顺序 & 可见性
-        applyNav(_config.navOrder, _config.navVisible);
+        // 导航顺序
+        applyNav(_config.navOrder);
 
         // 自定义 CSS
         applyCustomCss(_config.customCss);
@@ -61,23 +54,19 @@ const LayoutEngine = (function() {
         return _config;
     }
 
-    function applyNav(order, visible) {
+    function applyNav(order) {
         const navList = document.querySelector('.nav-list');
         if (!navList) return;
 
-        // 收集所有现有 nav-item
         const items = {};
         navList.querySelectorAll('.nav-item').forEach(el => {
             items[el.dataset.tab] = el;
         });
 
-        // 按 order 重排，跳过不可见项
         navList.innerHTML = '';
         order.forEach(tabId => {
-            if (visible && visible[tabId] === false) return;
             const el = items[tabId];
             if (el) {
-                // 确保数据和图标最新
                 el.querySelector('.nav-label').textContent = NAV_LABELS[tabId] || tabId;
                 const icon = el.querySelector('.nav-icon');
                 if (icon) icon.textContent = NAV_ICONS[tabId] || '';
@@ -198,10 +187,8 @@ const LayoutEngine = (function() {
             if (!container) return;
 
             const order = cfg.navOrder || DEFAULT_CONFIG.navOrder;
-            const visible = cfg.navVisible || DEFAULT_CONFIG.navVisible;
 
             container.innerHTML = order.map((tabId, idx) => {
-                const isVis = visible[tabId] !== false;
                 const label = NAV_LABELS[tabId] || tabId;
                 const isFirst = idx === 0;
                 const isLast = idx === order.length - 1;
@@ -211,7 +198,6 @@ const LayoutEngine = (function() {
                         <span class="nav-order-label">${escAttr(label)}</span>
                         <button class="nav-order-btn nav-order-up ${isFirst ? 'disabled' : ''}" data-action="up" data-tab="${escAttr(tabId)}" ${isFirst ? 'disabled' : ''}>▲</button>
                         <button class="nav-order-btn nav-order-down ${isLast ? 'disabled' : ''}" data-action="down" data-tab="${escAttr(tabId)}" ${isLast ? 'disabled' : ''}>▼</button>
-                        <button class="nav-order-btn nav-order-eye ${isVis ? '' : 'off'}" data-action="toggle" data-tab="${escAttr(tabId)}">${isVis ? '👁' : '─'}</button>
                     </div>`;
             }).join('');
 
@@ -228,8 +214,6 @@ const LayoutEngine = (function() {
                         [cfg.navOrder[idx], cfg.navOrder[idx - 1]] = [cfg.navOrder[idx - 1], cfg.navOrder[idx]];
                     } else if (action === 'down' && idx < cfg.navOrder.length - 1) {
                         [cfg.navOrder[idx], cfg.navOrder[idx + 1]] = [cfg.navOrder[idx + 1], cfg.navOrder[idx]];
-                    } else if (action === 'toggle') {
-                        cfg.navVisible[tabId] = !(cfg.navVisible[tabId] !== false);
                     } else {
                         return;
                     }

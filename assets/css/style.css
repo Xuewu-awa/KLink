@@ -1430,14 +1430,11 @@ input[type="color"]::-webkit-color-swatch {
     border-right: none;
     border-bottom: 1px solid var(--hairline);
     padding: 0;
-    max-height: 48px;
+    max-height: 46px;
+    flex-shrink: 0;
 }
-.layout-tabs-top .sidebar::after {
-    display: none;
-}
-.layout-tabs-top .sidebar-header {
-    display: none;
-}
+.layout-tabs-top .sidebar::after { display: none; }
+.layout-tabs-top .sidebar-header { display: none; }
 .layout-tabs-top .nav-list {
     flex-direction: row;
     padding: 0;
@@ -1448,7 +1445,7 @@ input[type="color"]::-webkit-color-swatch {
 .layout-tabs-top .nav-item {
     flex-shrink: 0;
     white-space: nowrap;
-    padding: 12px 16px;
+    padding: 11px 14px;
     margin: 0;
     border-radius: 0;
     border-left: none;
@@ -1469,14 +1466,26 @@ input[type="color"]::-webkit-color-swatch {
 }
 .layout-tabs-top .sidebar-footer .btn {
     font-size: var(--fs-caption);
-    padding: 6px 14px;
+    padding: 5px 12px;
 }
 .layout-tabs-top .status-indicator {
     margin-top: 0;
     padding: 0;
+    font-size: 9px;
 }
+.layout-tabs-top .status-indicator .status-dot {
+    width: 5px; height: 5px;
+}
+/* 顶部标签模式下内容区全宽 */
 .layout-tabs-top .content {
-    padding-top: var(--space-md);
+    padding: var(--space-md) var(--space-md);
+}
+.layout-tabs-top .card,
+.layout-tabs-top .status-hero {
+    max-width: none;
+}
+.layout-tabs-top .panel-title {
+    font-size: var(--fs-heading);
 }
 
 /* ---- 底部导航栏 ---- */
@@ -1492,13 +1501,10 @@ input[type="color"]::-webkit-color-swatch {
     border-top: 1px solid var(--hairline);
     padding: 0;
     max-height: 52px;
+    flex-shrink: 0;
 }
-.layout-tabs-bottom .sidebar::after {
-    display: none;
-}
-.layout-tabs-bottom .sidebar-header {
-    display: none;
-}
+.layout-tabs-bottom .sidebar::after { display: none; }
+.layout-tabs-bottom .sidebar-header { display: none; }
 .layout-tabs-bottom .nav-list {
     flex-direction: row;
     padding: 0;
@@ -1509,7 +1515,7 @@ input[type="color"]::-webkit-color-swatch {
 .layout-tabs-bottom .nav-item {
     flex-direction: column;
     gap: 2px;
-    padding: 6px 8px;
+    padding: 5px 8px;
     margin: 0;
     border-radius: 0;
     border-left: none;
@@ -1521,15 +1527,14 @@ input[type="color"]::-webkit-color-swatch {
     border-top-color: var(--accent);
     border-left: none;
 }
-.layout-tabs-bottom .nav-icon {
-    font-size: 16px;
-    width: auto;
-}
-.layout-tabs-bottom .sidebar-footer {
-    display: none;
-}
+.layout-tabs-bottom .nav-icon { font-size: 15px; width: auto; }
+.layout-tabs-bottom .sidebar-footer { display: none; }
 .layout-tabs-bottom .content {
-    padding-bottom: var(--space-sm);
+    padding: var(--space-md);
+}
+.layout-tabs-bottom .card,
+.layout-tabs-bottom .status-hero {
+    max-width: none;
 }
 
 /* 布局模式 × 分辨率联合适配 */
@@ -1708,26 +1713,18 @@ body.immersive .focus-toggle:hover {
     opacity: 1;
 }
 
-/* ---- 专注模式：侧边栏滑出 ---- */
-body.immersive .sidebar {
-    visibility: hidden;
-    transition: visibility 0s 0.5s, transform 0.5s var(--ease-out);
-    transform: translateX(-30px);
-}
-
-/* ---- 专注模式：主内容区淡出 ---- */
+/* ---- 专注模式：侧边栏和内容区隐藏 ---- */
+body.immersive .sidebar,
 body.immersive .content {
-    visibility: hidden;
-    transition: visibility 0s 0.5s;
+    display: none;
 }
 
 /* ---- 专注模式：启动游戏按钮放大居中 ---- */
 body.immersive #btnLaunchGame {
-    visibility: visible;         /* 覆盖侧边栏的 visibility: hidden */
     position: fixed;
-    bottom: 50%;
+    top: 50%;
     left: 50%;
-    transform: translate(-50%, 50%);
+    transform: translate(-50%, -50%);
     z-index: 101;
     width: auto;
     min-width: 200px;
@@ -1736,7 +1733,6 @@ body.immersive #btnLaunchGame {
     letter-spacing: 4px;
     border-radius: var(--radius-lg);
     opacity: 0.92;
-    transition: all 0.6s var(--ease-out);
     box-shadow: 0 0 48px rgba(158, 217, 204, 0.2);
     animation: focusPulse 4s ease-in-out infinite;
 }
@@ -1772,8 +1768,4 @@ body.immersive #theme-bg-video {
     opacity: 1 !important;
 }
 
-/* 布局模式适配：顶栏/底栏模式下侧边栏同样滑出 */
-body.immersive.layout-tabs-top .sidebar,
-body.immersive.layout-tabs-bottom .sidebar {
-    transform: translateY(-30px);
-}
+
