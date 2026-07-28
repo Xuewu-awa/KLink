@@ -395,6 +395,11 @@
         const msg = event.message || '';
 
         if (type === 'error') {
+            if (msg.indexOf('BLOCKED') !== -1) {
+                showToast('无法连接至该服务器 请尝试其他服务器');
+                setServerUI(false);
+                return;
+            }
             log(msg, 'error');
             setServerUI(false);
         } else if (type === 'warn') {
@@ -435,6 +440,17 @@
 
     function modeLabel(mode) {
         return { local: '本地', lan: '局域网', remote: '远程转发' }[mode] || mode;
+    }
+
+    function showToast(message) {
+        var toast = $('#toast');
+        if (!toast) return;
+        toast.textContent = message;
+        toast.classList.add('show');
+        clearTimeout(toast._hideTimer);
+        toast._hideTimer = setTimeout(function() {
+            toast.classList.remove('show');
+        }, 3000);
     }
 
 })();

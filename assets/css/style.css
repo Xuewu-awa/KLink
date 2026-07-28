@@ -1586,6 +1586,32 @@ body.immersive .focus-hint.show {
     opacity: 1;
 }
 
+/* ---- Toast 弹出提示 ---- */
+.toast {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 200;
+    pointer-events: none;
+    padding: 16px 28px;
+    background: var(--bg-overlay);
+    border: 1px solid var(--danger-border);
+    border-radius: 8px;
+    color: var(--danger);
+    font-size: var(--fs-body);
+    font-weight: 500;
+    text-align: center;
+    opacity: 0;
+    transition: opacity 0.3s var(--ease-out);
+    max-width: 280px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+}
+
+.toast.show {
+    opacity: 1;
+}
+
 /* ---- 专注模式下背景视频/图片保持可见 ---- */
 body.immersive #theme-bg-overlay,
 body.immersive #theme-bg-video {

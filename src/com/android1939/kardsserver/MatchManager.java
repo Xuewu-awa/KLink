@@ -221,6 +221,13 @@ public final class MatchManager {
         DeckRecord rightDeck = database.findDeckById(match.deckIdRight);
         match.leftDeckData = deckCodeManager.parseDeckCode(leftDeck == null ? "" : leftDeck.deckCode);
         match.rightDeckData = deckCodeManager.parseDeckCode(rightDeck == null ? "" : rightDeck.deckCode);
+        if (!match.leftDeckData.optBoolean("success") || !match.rightDeckData.optBoolean("success")) {
+            playing.remove(leftPlayer);
+            playing.remove(rightPlayer);
+            playerDecks.remove(leftPlayer);
+            playerDecks.remove(rightPlayer);
+            return;
+        }
         match.leftCardsData = deckCodeManager.createMatchCards("left", match.leftDeckData);
         match.rightCardsData = deckCodeManager.createMatchCards("right", match.rightDeckData);
         shuffleCards(match.leftCardsData);
@@ -334,6 +341,10 @@ public final class MatchManager {
 
         match.leftDeckData = deckCodeManager.parseDeckCode(playerDeck.deckCode);
         match.rightDeckData = deckCodeManager.parseDeckCode(playerDeck.deckCode);
+        if (!match.leftDeckData.optBoolean("success") || !match.rightDeckData.optBoolean("success")) {
+            playing.remove(playerId);
+            return;
+        }
         match.leftCardsData = deckCodeManager.createMatchCards("left", match.leftDeckData);
         match.rightCardsData = deckCodeManager.createMatchCards("right", match.rightDeckData);
         shuffleCards(match.leftCardsData);

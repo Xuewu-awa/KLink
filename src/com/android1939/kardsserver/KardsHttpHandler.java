@@ -498,11 +498,13 @@ public final class KardsHttpHandler implements SimpleHttpServer.Handler {
 
     private HttpResponse createDeck(HttpRequest request, UserRecord user) throws Exception {
         JSONObject body = request.jsonBody();
+        String mainFaction = normalizeFaction(body, "main_faction", "main_country", "main_nation");
+        String allyFaction = body.optString("ally_faction");
         DeckRecord deck = database.createDeck(
                 user.id,
                 body.optString("name"),
-                body.optString("main_faction"),
-                body.optString("ally_faction"),
+                mainFaction,
+                allyFaction,
                 body.optString("deck_code"));
         return HttpResponse.json(200, deckJson(deck));
     }
@@ -520,7 +522,11 @@ public final class KardsHttpHandler implements SimpleHttpServer.Handler {
     private HttpResponse fillDeck(HttpRequest request, int deckId) throws Exception {
         JSONObject body = request.jsonBody();
         if ("fill".equals(body.optString("action"))) {
-            database.updateDeckCode(deckId, body.optString("deck_code"));
+            String deckCode = body.optString("deck_code");
+            if (!isPlayableDeckCode(deckCode)) {
+                return HttpResponse.text(400, "invalid deck code");
+            }
+            database.updateDeckCode(deckId, deckCode);
         }
         return HttpResponse.text(200, "OK");
     }
@@ -536,8 +542,12 @@ public final class KardsHttpHandler implements SimpleHttpServer.Handler {
             return HttpResponse.text(removed ? 200 : 404, removed ? "OK" : "player not queued");
         }
         int deckId = body.optInt("deck_id");
-        if (!database.hasDeck(deckId)) {
+        DeckRecord deck = database.findDeckForUser(user.id, deckId);
+        if (deck == null) {
             return HttpResponse.text(400, "deck not found");
+        }
+        if (!isPlayableDeckCode(deck.deckCode)) {
+            return HttpResponse.text(400, "invalid deck code");
         }
         if (!webSockets.isOnline(playerId)) {
             return HttpResponse.text(400, "WebSocket not connected");
@@ -1150,10 +1160,20 @@ public final class KardsHttpHandler implements SimpleHttpServer.Handler {
     }
 
     private JSONObject deckJson(DeckRecord deck) throws Exception {
+        String mainFaction = deck.mainFaction;
+        String allyFaction = deck.allyFaction;
+        // 数据库阵营为空时从卡组代码恢复
+        if ((mainFaction == null || mainFaction.isEmpty()) && deck.deckCode != null && deck.deckCode.startsWith("%%") && deck.deckCode.length() >= 4) {
+            String country = deck.deckCode.substring(2, 4);
+            mainFaction = countryName(country.substring(0, 1));
+            allyFaction = countryName(country.substring(1, 2));
+        }
         JSONObject json = new JSONObject();
         json.put("name", deck.name);
-        json.put("main_faction", deck.mainFaction);
-        json.put("ally_faction", deck.allyFaction);
+        json.put("main_faction", mainFaction);
+        json.put("main_country", mainFaction);
+        json.put("main_nation", mainFaction);
+        json.put("ally_faction", allyFaction);
         json.put("card_back", deck.cardBack);
         json.put("deck_code", deck.deckCode);
         json.put("favorite", deck.favorite);
@@ -1249,7 +1269,7 @@ public final class KardsHttpHandler implements SimpleHttpServer.Handler {
             options.put("appscale_mobile_max", 1.4);
             options.put("appscale_mobile_min", 1.0);
             options.put("appscale_tablet_min", 1.0);
-            options.put("battle_wait_time", 600);
+            options.put("battle_wait_time", 6000);
             options.put("brothers_in_arms_date", "2023.06.18-09.30.00");
             options.put("covert_ops_date", "2024.06.11-11.00.00");
             options.put("naval_warfare_date", "2025.05.22-12.00.00");
@@ -1266,7 +1286,7 @@ public final class KardsHttpHandler implements SimpleHttpServer.Handler {
             options.put("new_effect_bar_pc", 1);
             options.put("new_effect_icons", 1);
             options.put("feature_socketerror_popup_enabled", 1);
-            options.put("versions", stringArray(new String[]{"Kards 1.47", "Kards 1.49", "Kards 1.50", "Kards 1.52", "Kards 1.52.25476.launcher", "Kards 1.53", "Kards 1.54", "Kards 1.55", "Kards 1.56"}));
+            options.put("versions", stringArray(new String[]{"Kards 1.47", "Kards 1.49", "Kards 1.50", "Kards 1.52", "Kards 1.52.25476.launcher", "Kards 1.53", "Kards 1.54", "Kards 1.54.26471.APK", "Kards 1.56"}));
             JSONArray locked = new JSONArray();
             locked.put(new JSONObject()
                     .put("cards", stringArray(new String[]{
@@ -1294,6 +1314,8 @@ public final class KardsHttpHandler implements SimpleHttpServer.Handler {
                             "card_unit_spitfire_v", "card_unit_rnzaf_kittyhawk"
                     })));
             options.put("give_guest_name", 0);
+            options.put("anzac", 1);
+            options.put("oceania_storm_date", "2026.06.11-08.00.00");
             return options.toString();
         } catch (Exception e) {
             return "{}";
@@ -1358,6 +1380,45 @@ public final class KardsHttpHandler implements SimpleHttpServer.Handler {
 
     private int parseId(String value) {
         return Integer.parseInt(value);
+    }
+
+    private boolean isPlayableDeckCode(String deckCode) {
+        if (deckCode == null || !deckCode.startsWith("%%")) return false;
+        String code = deckCode.substring(2);
+        String[] parts = code.split("\\|");
+        if (parts.length < 2) return false;
+        String country = parts[0];
+        String cards = parts[1];
+        if (country.length() < 2) return false;
+        if (cards.indexOf('~') >= 0) cards = cards.substring(0, cards.indexOf('~'));
+        String[] groups = cards.split(";", -1);
+        if (groups.length != 4) return false;
+        // 不能是空卡组
+        for (String group : groups) {
+            if (group.length() > 0) return true;
+        }
+        return false;
+    }
+
+    private String normalizeFaction(JSONObject body, String... keys) {
+        for (String key : keys) {
+            String value = body.optString(key);
+            if (value != null && value.length() > 0) return value;
+        }
+        return "";
+    }
+
+    private static String countryName(String code) {
+        if ("1".equals(code)) return "Germany";
+        if ("2".equals(code)) return "Britain";
+        if ("3".equals(code)) return "Japan";
+        if ("4".equals(code)) return "Soviet";
+        if ("5".equals(code)) return "USA";
+        if ("6".equals(code)) return "France";
+        if ("7".equals(code)) return "Italy";
+        if ("8".equals(code)) return "Poland";
+        if ("9".equals(code)) return "Finland";
+        return "Unknown";
     }
 
     private static final class Unauthorized extends RuntimeException {

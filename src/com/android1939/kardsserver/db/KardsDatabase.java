@@ -255,6 +255,16 @@ public final class KardsDatabase extends SQLiteOpenHelper {
         return findDeckById(deckId) != null;
     }
 
+    public synchronized DeckRecord findDeckForUser(int userId, int deckId) {
+        Cursor cursor = getReadableDatabase().query("decks", null, "id=? AND user_id=?",
+                new String[]{String.valueOf(deckId), String.valueOf(userId)}, null, null, null);
+        try {
+            return cursor.moveToFirst() ? readDeck(cursor) : null;
+        } finally {
+            cursor.close();
+        }
+    }
+
     public synchronized void renameDeck(int deckId, String name) {
         updateDeckField(deckId, "name", name);
     }

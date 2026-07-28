@@ -709,6 +709,10 @@ public class KLinkBridge {
         if (remoteAddress.isEmpty()) {
             throw new IllegalArgumentException("请输入远程服务器地址");
         }
+        // 屏蔽官方服务器域名
+        if (remoteAddress.toLowerCase().contains("kards.live.1939api.com")) {
+            throw new IllegalArgumentException("BLOCKED");
+        }
         if (proxyServer == null) {
             proxyServer = new ProxyServer(remoteAddress, remotePort);
         } else {
