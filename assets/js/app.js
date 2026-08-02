@@ -684,9 +684,14 @@
                     lines.push('模板: 存在');
                     lines.push('模板版本: ' + (data.template_version || '(未找到 ProjectVersion=)'));
                     lines.push('容量: ' + data.capacity + ' 字符');
-                    lines.push('已保存版本: ' + (data.saved_version || '（无，默认使用模板版本）'));
+                    lines.push('已保存版本: ' + (data.saved_version || '（无，默认使用服务端默认版本）'));
+                    lines.push('默认版本: ' + (data.default_version || ''));
                     lines.push('输出: ' + (data.output_path || ''));
-                    if (data.saved_version) $('#inputPakVersion').value = data.saved_version;
+                    if (data.saved_version) {
+                        $('#inputPakVersion').value = data.saved_version;
+                    } else if (data.default_version) {
+                        $('#inputPakVersion').value = data.default_version;
+                    }
                 } else {
                     lines.push('模板: 不存在');
                     lines.push('提示: ' + (data.error || ''));
@@ -702,7 +707,7 @@
     function applyPak(rewrite) {
         const version = $('#inputPakVersion').value.trim();
         const body = {rewrite: rewrite};
-        if (version) body.version = version;
+        if (rewrite && version) body.version = version;
         apiFetch('/admin/pak/apply', {method: 'POST', body: JSON.stringify(body)})
             .then(function(data) {
                 showToast((rewrite ? '已改写版本号: ' : '已复制模板') + (data.version || ''));

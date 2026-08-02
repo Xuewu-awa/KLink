@@ -28,6 +28,9 @@ public final class VersionPakManager {
     private static final String VERSION_KEY = "ProjectVersion=";
     private static final String OUTPUT_NAME = "version_P.pak";
 
+    /** 默认版本号：未手动设置版本时，远程/局域网模式用它改写补丁版本。 */
+    public static final String DEFAULT_VERSION = "KLink 29452.29452";
+
     private final Context context;
     private final File templateFile;
     private final File outputDir;
@@ -60,6 +63,7 @@ public final class VersionPakManager {
             json.put("template_path", templateFile.getAbsolutePath());
             json.put("output_path", new File(outputDir, OUTPUT_NAME).getAbsolutePath());
             json.put("saved_version", readStoredVersion());
+            json.put("default_version", DEFAULT_VERSION);
             json.put("error", "");
             if (templateFile.exists()) {
                 byte[] data = readTemplate();
@@ -68,7 +72,9 @@ public final class VersionPakManager {
                     json.put("error", "模板中未找到 ProjectVersion=");
                 } else {
                     json.put("capacity", range[2]);
-                    json.put("template_version", new String(data, range[0], range[1] - range[0], "ASCII").trim());
+                    String templateVersion = new String(data, range[0], range[1] - range[0], "ASCII").trim();
+                    json.put("template_version", templateVersion);
+                    json.put("default_version", defaultVersionFor(range[2], templateVersion));
                 }
             } else {
                 json.put("error", "模板不存在，请将 version.pak 放入 " + templateFile.getParent());
@@ -89,7 +95,8 @@ public final class VersionPakManager {
      */
     public JSONObject applyBeforeLaunch(String mode) throws Exception {
         String version = readStoredVersion();
-        boolean rewrite = !"local".equals(mode) && version != null && version.length() > 0;
+        // 远程/局域网模式一律改写；未设置版本时使用默认版本号（见 apply）
+        boolean rewrite = !"local".equals(mode);
         return apply(version, rewrite);
     }
 
@@ -124,7 +131,7 @@ public final class VersionPakManager {
 
         if (rewrite) {
             if (stored == null) {
-                stored = current; // 无保存版本时保持模板版本
+                stored = defaultVersionFor(capacity, current); // 未设置版本时用默认版本号
             }
             if (stored.length() > capacity) {
                 throw new IllegalArgumentException("版本号过长（最大 " + capacity + " 字符）：" + stored);
@@ -232,6 +239,13 @@ public final class VersionPakManager {
             }
         }
         return null;
+    }
+
+    private static String defaultVersionFor(int capacity, String current) {
+        if (DEFAULT_VERSION.length() <= capacity) {
+            return DEFAULT_VERSION;
+        }
+        return current; // 模板容量小于默认版本号时保持模板版本
     }
 
     private static boolean isAscii(String value) {
