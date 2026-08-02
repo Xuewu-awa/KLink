@@ -11,7 +11,7 @@ const LayoutEngine = (function() {
     // ======================== 默认配置 ========================
     const DEFAULT_CONFIG = {
         mode: 'sidebar-left',       // 'sidebar-left' | 'tabs-top' | 'tabs-bottom'
-        navOrder: ['server', 'rooms', 'mods', 'theme', 'settings'],
+        navOrder: ['server', 'rooms', 'mods', 'cards', 'version', 'theme', 'settings'],
         customCss: ''
     };
 
@@ -19,6 +19,8 @@ const LayoutEngine = (function() {
         server:   '服务器',
         rooms:    '房间发现',
         mods:     '模组管理',
+        cards:    '卡牌ID',
+        version:  '版本补丁',
         theme:    '主题',
         settings: '设置'
     };
@@ -27,6 +29,8 @@ const LayoutEngine = (function() {
         server:   '◇',
         rooms:    '◎',
         mods:     '◫',
+        cards:    '♠',
+        version:  '✎',
         theme:    '◐',
         settings: '⚙'
     };
@@ -71,6 +75,12 @@ const LayoutEngine = (function() {
                 const icon = el.querySelector('.nav-icon');
                 if (icon) icon.textContent = NAV_ICONS[tabId] || '';
                 navList.appendChild(el);
+            }
+        });
+        // 兼容旧配置：不在 navOrder 中的导航项追加到末尾
+        Object.keys(items).forEach(function(tabId) {
+            if (order.indexOf(tabId) < 0 && items[tabId]) {
+                navList.appendChild(items[tabId]);
             }
         });
     }

@@ -30,6 +30,14 @@
                     <span class="nav-icon">◫</span>
                     <span class="nav-label">模组管理</span>
                 </li>
+                <li class="nav-item" data-tab="cards">
+                    <span class="nav-icon">♠</span>
+                    <span class="nav-label">卡牌ID</span>
+                </li>
+                <li class="nav-item" data-tab="version">
+                    <span class="nav-icon">✎</span>
+                    <span class="nav-label">版本补丁</span>
+                </li>
                 <li class="nav-item" data-tab="theme">
                     <span class="nav-icon">◐</span>
                     <span class="nav-label">主题</span>
@@ -165,6 +173,79 @@
                     <div class="mod-list" id="modList">
                         <div class="empty-hint">暂无模组，点击扫描或安装</div>
                     </div>
+                </div>
+            </section>
+
+            <!-- ========== 卡牌/卡组 ID 管理器面板 ========== -->
+            <section class="tab-panel" id="panel-cards">
+                <h2 class="panel-title">卡牌/卡组 ID 管理器</h2>
+
+                <div class="card card-compact">
+                    <div class="btn-row">
+                        <button class="btn btn-ghost" id="btnReloadCards">重新加载/预览</button>
+                        <button class="btn btn-ghost" id="btnCheckConsistency">检查一致性</button>
+                        <button class="btn btn-danger" id="btnSaveCards">保存全部修改</button>
+                    </div>
+                    <p style="font-size:var(--fs-caption);color:var(--text-tertiary);margin-top:6px;">
+                        修改先预览在内存中，点击「保存全部修改」才写入磁盘（自动备份 .bak，改坏了可恢复）。保存后立即生效，无需重启服务器。
+                    </p>
+                </div>
+
+                <div class="card">
+                    <h3 class="card-title">卡牌库 library.json</h3>
+                    <div class="form-row">
+                        <input type="text" class="input" id="inputCardSearch" placeholder="按卡牌名 / 数字 ID 搜索">
+                        <button class="btn btn-sm btn-accent" id="btnAddCard">添加/更新卡牌</button>
+                        <button class="btn btn-sm btn-danger" id="btnDeleteCards">删除选中</button>
+                    </div>
+                    <div class="table-wrap">
+                        <table class="data-table" id="cardTable">
+                            <thead><tr><th class="col-check"></th><th>数字ID</th><th>卡牌代码</th><th>数量</th><th class="col-ops"></th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                    <div class="table-meta" id="cardMeta"></div>
+                </div>
+
+                <div class="card">
+                    <h3 class="card-title">卡组代码 deck_code_ids.json</h3>
+                    <div class="form-row">
+                        <input type="text" class="input" id="inputDeckSearch" placeholder="按代码 / 卡牌 / ID 搜索">
+                        <button class="btn btn-sm btn-accent" id="btnAddDeck">添加/更新卡组代码</button>
+                        <button class="btn btn-sm btn-danger" id="btnDeleteDecks">删除选中</button>
+                    </div>
+                    <div class="table-wrap">
+                        <table class="data-table" id="deckTable">
+                            <thead><tr><th class="col-check"></th><th>数字ID</th><th>卡组代码</th><th>对应卡牌</th><th class="col-ops"></th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                    <div class="table-meta" id="deckMeta"></div>
+                </div>
+            </section>
+
+            <!-- ========== 版本补丁面板 ========== -->
+            <section class="tab-panel" id="panel-version">
+                <h2 class="panel-title">版本补丁 pak</h2>
+
+                <div class="card">
+                    <h3 class="card-title">模板状态</h3>
+                    <div class="pak-status" id="pakStatus">加载中...</div>
+                </div>
+
+                <div class="card">
+                    <h3 class="card-title">修改版本号</h3>
+                    <div class="form-row">
+                        <label class="form-label">版本号</label>
+                        <input type="text" class="input" id="inputPakVersion" placeholder="如 29452.29452">
+                        <button class="btn btn-accent" id="btnApplyPak">应用（改写版本）</button>
+                        <button class="btn btn-ghost" id="btnCopyPak">仅复制不改版本</button>
+                    </div>
+                    <p style="font-size:var(--fs-caption);color:var(--text-tertiary);margin-top:8px;">
+                        本地模式启动游戏时直接复制模板；远程/局域网模式使用此处保存的版本号改写。
+                        版本号必须为纯 ASCII 且不超过模板容量（超长将被拒绝）。输出到游戏 Paks 目录，每次启动覆盖。
+                        修改后请退出游戏再启动使其生效。
+                    </p>
                 </div>
             </section>
 
@@ -361,6 +442,52 @@
     <!-- 专注模式退出按钮（仅沉浸时可见） -->
     <button class="focus-toggle" id="btnFocusToggle" title="退出专注模式">✕</button>
     <div class="focus-hint" id="focusHint">双击任意位置返回</div>
+
+    <!-- ========== 添加/更新卡牌弹窗 ========== -->
+    <div class="modal-mask" id="modalCard" style="display:none;">
+        <div class="modal">
+            <h3 class="modal-title">添加/更新卡牌</h3>
+            <div class="form-row">
+                <label class="form-label">卡牌资源名</label>
+                <input type="text" class="input" id="mCardType" placeholder="card_unit_xxx">
+            </div>
+            <div class="form-row">
+                <label class="form-label">数字 ID</label>
+                <input type="number" class="input" id="mCardId" min="1">
+            </div>
+            <div class="form-row">
+                <label class="form-label">拥有数量</label>
+                <input type="number" class="input" id="mCardCount" value="4" min="1">
+            </div>
+            <div class="btn-row modal-actions">
+                <button class="btn btn-accent" id="mCardOk">确认</button>
+                <button class="btn btn-ghost" id="mCardCancel">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== 添加/更新卡组代码弹窗 ========== -->
+    <div class="modal-mask" id="modalDeck" style="display:none;">
+        <div class="modal">
+            <h3 class="modal-title">添加/更新卡组代码</h3>
+            <div class="form-row">
+                <label class="form-label">卡组代码</label>
+                <input type="text" class="input" id="mDeckCode" placeholder="01">
+            </div>
+            <div class="form-row">
+                <label class="form-label">数字 ID</label>
+                <input type="number" class="input" id="mDeckId" min="1">
+            </div>
+            <div class="form-row">
+                <label class="form-label">对应卡牌</label>
+                <input type="text" class="input" id="mDeckCard" placeholder="card_unit_xxx">
+            </div>
+            <div class="btn-row modal-actions">
+                <button class="btn btn-accent" id="mDeckOk">确认</button>
+                <button class="btn btn-ghost" id="mDeckCancel">取消</button>
+            </div>
+        </div>
+    </div>
 
     <script src="js/theme.js"></script>
     <script src="js/layout.js"></script>

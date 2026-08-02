@@ -131,6 +131,30 @@
         $('#btnInstallMod').addEventListener('click', installMod);
         $('#btnLaunchGame').addEventListener('click', () => window.KLink.launchGame());
 
+        // 卡牌/卡组 ID 管理器
+        $('#btnReloadCards').addEventListener('click', function() { loadCardData(); loadDeckData(); });
+        $('#btnCheckConsistency').addEventListener('click', checkConsistency);
+        $('#btnSaveCards').addEventListener('click', saveCards);
+        $('#inputCardSearch').addEventListener('input', loadCardData);
+        $('#btnAddCard').addEventListener('click', function() { openCardModal(null); });
+        $('#btnDeleteCards').addEventListener('click', deleteSelectedCards);
+        $('#inputDeckSearch').addEventListener('input', loadDeckData);
+        $('#btnAddDeck').addEventListener('click', function() { openDeckModal(null); });
+        $('#btnDeleteDecks').addEventListener('click', deleteSelectedDecks);
+        $('#mCardOk').addEventListener('click', submitCard);
+        $('#mCardCancel').addEventListener('click', function() { closeModal('modalCard'); });
+        $('#mDeckOk').addEventListener('click', submitDeck);
+        $('#mDeckCancel').addEventListener('click', function() { closeModal('modalDeck'); });
+        $$('.modal-mask').forEach(function(mask) {
+            mask.addEventListener('click', function(e) {
+                if (e.target === mask) mask.style.display = 'none';
+            });
+        });
+
+        // 版本补丁
+        $('#btnApplyPak').addEventListener('click', function() { applyPak(true); });
+        $('#btnCopyPak').addEventListener('click', function() { applyPak(false); });
+
         // 专注模式（设置面板按钮 → 进入；右下 ✕ 按钮 → 退出）
         var enterBtn = $('#btnEnterFocus');
         if (enterBtn) enterBtn.addEventListener('click', enterFocusMode);
@@ -165,6 +189,8 @@
 
         // 自动加载对应数据
         if (tabId === 'mods') scanMods();
+        if (tabId === 'cards') loadCardData();
+        if (tabId === 'version') loadPakStatus();
         if (tabId === 'server') refreshStatus();
         if (tabId === 'theme') {
             if (typeof ThemeEngine !== 'undefined' && ThemeEngine.bindUI) {
@@ -451,6 +477,230 @@
         toast._hideTimer = setTimeout(function() {
             toast.classList.remove('show');
         }, 3000);
+    }
+
+    // ==================== 管理 API（HTTP 端点 /admin/*） ====================
+    const API_BASE = 'http://127.0.0.1:5231';
+
+    function apiFetch(path, options) {
+        const opts = options || {};
+        opts.headers = Object.assign({'Content-Type': 'application/json'}, opts.headers || {});
+        return fetch(API_BASE + path, opts).then(function(res) {
+            return res.json().catch(function() { return {}; });
+        }).then(function(data) {
+            if (data && data.error) throw new Error(data.error);
+            return data;
+        });
+    }
+
+    function apiParam(obj) {
+        return Object.keys(obj).map(function(k) {
+            return encodeURIComponent(k) + '=' + encodeURIComponent(obj[k]);
+        }).join('&');
+    }
+
+    // ==================== 卡牌/卡组 ID 管理器 ====================
+    function loadCardData() {
+        const q = $('#inputCardSearch').value;
+        apiFetch('/admin/library' + (q ? '?' + apiParam({q: q}) : ''))
+            .then(function(data) {
+                renderCardRows(data.cards || []);
+                $('#cardMeta').textContent = '共 ' + data.total + ' 条，匹配 ' + (data.matched || 0) + ' 条（内存预览，未写入）';
+            })
+            .catch(function(e) { log('加载卡牌库失败: ' + e.message, 'error'); });
+    }
+
+    function renderCardRows(rows) {
+        const tbody = $('#cardTable tbody');
+        if (!rows.length) {
+            tbody.innerHTML = '<tr><td colspan="5" class="empty-hint">无匹配卡牌</td></tr>';
+            return;
+        }
+        tbody.innerHTML = rows.map(function(c) {
+            const id = esc(String(c.id));
+            return '<tr>' +
+                '<td class="col-check"><input type="checkbox" data-kind="card" data-id="' + id + '"></td>' +
+                '<td>' + id + '</td>' +
+                '<td class="td-mono">' + esc(c.card_type || '') + '</td>' +
+                '<td>' + esc(String(c.count)) + '</td>' +
+                '<td class="col-ops"><button class="btn btn-sm btn-ghost" data-edit-card="' + id + '">编辑</button></td>' +
+                '</tr>';
+        }).join('');
+        tbody.querySelectorAll('[data-edit-card]').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const row = rows.find(function(c) { return String(c.id) === btn.dataset.editCard; });
+                if (row) openCardModal(row);
+            });
+        });
+    }
+
+    function loadDeckData() {
+        const q = $('#inputDeckSearch').value;
+        apiFetch('/admin/decks' + (q ? '?' + apiParam({q: q}) : ''))
+            .then(function(data) {
+                renderDeckRows(data.decks || []);
+                $('#deckMeta').textContent = '共 ' + data.total + ' 条，匹配 ' + (data.matched || 0) + ' 条（内存预览，未写入）';
+            })
+            .catch(function(e) { log('加载卡组代码失败: ' + e.message, 'error'); });
+    }
+
+    function renderDeckRows(rows) {
+        const tbody = $('#deckTable tbody');
+        if (!rows.length) {
+            tbody.innerHTML = '<tr><td colspan="5" class="empty-hint">无匹配卡组代码</td></tr>';
+            return;
+        }
+        tbody.innerHTML = rows.map(function(d) {
+            const code = esc(d.code || '');
+            return '<tr>' +
+                '<td class="col-check"><input type="checkbox" data-kind="deck" data-code="' + code + '"></td>' +
+                '<td>' + esc(String(d.ID)) + '</td>' +
+                '<td class="td-mono">' + code + '</td>' +
+                '<td class="td-mono">' + esc(d.card || '') + '</td>' +
+                '<td class="col-ops"><button class="btn btn-sm btn-ghost" data-edit-deck="' + code + '">编辑</button></td>' +
+                '</tr>';
+        }).join('');
+        tbody.querySelectorAll('[data-edit-deck]').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const row = rows.find(function(d) { return d.code === btn.dataset.editDeck; });
+                if (row) openDeckModal(row);
+            });
+        });
+    }
+
+    function openCardModal(row) {
+        $('#mCardType').value = row ? (row.card_type || '') : '';
+        $('#mCardId').value = row ? row.id : '';
+        $('#mCardCount').value = row ? row.count : 4;
+        $('#modalCard').style.display = 'flex';
+    }
+
+    function openDeckModal(row) {
+        $('#mDeckCode').value = row ? (row.code || '') : '';
+        $('#mDeckId').value = row ? row.ID : '';
+        $('#mDeckCard').value = row ? (row.card || '') : '';
+        $('#modalDeck').style.display = 'flex';
+    }
+
+    function closeModal(id) {
+        $('#' + id).style.display = 'none';
+    }
+
+    function submitCard() {
+        const card_type = $('#mCardType').value.trim();
+        const id = parseInt($('#mCardId').value, 10);
+        const count = parseInt($('#mCardCount').value, 10) || 4;
+        if (!card_type) { showToast('卡牌资源名不能为空'); return; }
+        if (!id || id <= 0) { showToast('数字 ID 必须为正整数'); return; }
+        apiFetch('/admin/library', {method: 'POST', body: JSON.stringify({card_type: card_type, id: id, count: count})})
+            .then(function() {
+                closeModal('modalCard');
+                showToast('卡牌已更新（内存预览，需保存写入）');
+                loadCardData();
+            })
+            .catch(function(e) { showToast('添加失败: ' + e.message); });
+    }
+
+    function submitDeck() {
+        const code = $('#mDeckCode').value.trim();
+        const ID = parseInt($('#mDeckId').value, 10);
+        const card = $('#mDeckCard').value.trim();
+        if (!code || !card) { showToast('卡组代码和对应卡牌不能为空'); return; }
+        if (!ID || ID <= 0) { showToast('数字 ID 必须为正整数'); return; }
+        apiFetch('/admin/decks', {method: 'POST', body: JSON.stringify({code: code, card: card, ID: ID})})
+            .then(function() {
+                closeModal('modalDeck');
+                showToast('卡组代码已更新（内存预览，需保存写入）');
+                loadDeckData();
+            })
+            .catch(function(e) { showToast('添加失败: ' + e.message); });
+    }
+
+    function selectedValues(kind, key) {
+        const vals = [];
+        $$('#cardTable tbody input[type=checkbox]:checked, #deckTable tbody input[type=checkbox]:checked').forEach(function(cb) {
+            if (cb.dataset.kind !== kind) return;
+            vals.push(cb.dataset[key]);
+        });
+        return vals;
+    }
+
+    function deleteSelectedCards() {
+        const ids = selectedValues('card', 'id');
+        if (!ids.length) { showToast('请先勾选要删除的卡牌'); return; }
+        apiFetch('/admin/library?' + apiParam({id: ids.join(',')}), {method: 'DELETE'})
+            .then(function() { showToast('已删除 ' + ids.length + ' 张卡牌（内存预览，需保存写入）'); loadCardData(); })
+            .catch(function(e) { showToast('删除失败: ' + e.message); });
+    }
+
+    function deleteSelectedDecks() {
+        const codes = selectedValues('deck', 'code');
+        if (!codes.length) { showToast('请先勾选要删除的卡组代码'); return; }
+        apiFetch('/admin/decks?' + apiParam({code: codes.join(',')}), {method: 'DELETE'})
+            .then(function() { showToast('已删除 ' + codes.length + ' 条卡组代码（内存预览，需保存写入）'); loadDeckData(); })
+            .catch(function(e) { showToast('删除失败: ' + e.message); });
+    }
+
+    function checkConsistency() {
+        apiFetch('/admin/check', {method: 'POST'})
+            .then(function(data) {
+                if (data.ok) {
+                    showToast('一致性检查通过');
+                    log('一致性检查通过', 'success');
+                } else {
+                    showToast('发现 ' + data.error_count + ' 个问题');
+                    log('一致性检查发现 ' + data.error_count + ' 个问题（内置数据本身存在历史遗留悬空引用，不影响游戏运行）', 'warn');
+                    (data.errors || []).forEach(function(e) { log(e, 'warn'); });
+                }
+            })
+            .catch(function(e) { showToast('检查失败: ' + e.message); });
+    }
+
+    function saveCards() {
+        apiFetch('/admin/save', {method: 'POST'})
+            .then(function(data) {
+                const b = data.backups || {};
+                showToast('已保存并生效' + (b.library ? '，备份 ' + b.library : ''));
+                log('已保存全部修改，服务器缓存已刷新，无需重启', 'success');
+            })
+            .catch(function(e) { showToast('保存失败: ' + e.message); });
+    }
+
+    // ==================== 版本补丁 pak ====================
+    function loadPakStatus() {
+        apiFetch('/admin/pak/status')
+            .then(function(data) {
+                const lines = [];
+                if (data.template_exists) {
+                    lines.push('模板: 存在');
+                    lines.push('模板版本: ' + (data.template_version || '(未找到 ProjectVersion=)'));
+                    lines.push('容量: ' + data.capacity + ' 字符');
+                    lines.push('已保存版本: ' + (data.saved_version || '（无，默认使用模板版本）'));
+                    lines.push('输出: ' + (data.output_path || ''));
+                    if (data.saved_version) $('#inputPakVersion').value = data.saved_version;
+                } else {
+                    lines.push('模板: 不存在');
+                    lines.push('提示: ' + (data.error || ''));
+                    lines.push('请将 version.pak 放入 ' + (data.template_path || 'data 目录'));
+                }
+                $('#pakStatus').innerHTML = lines.map(function(l) { return '<div>' + esc(l) + '</div>'; }).join('');
+            })
+            .catch(function(e) {
+                $('#pakStatus').innerHTML = '<div>加载失败: ' + esc(e.message) + '（服务器未启动？）</div>';
+            });
+    }
+
+    function applyPak(rewrite) {
+        const version = $('#inputPakVersion').value.trim();
+        const body = {rewrite: rewrite};
+        if (version) body.version = version;
+        apiFetch('/admin/pak/apply', {method: 'POST', body: JSON.stringify(body)})
+            .then(function(data) {
+                showToast((rewrite ? '已改写版本号: ' : '已复制模板') + (data.version || ''));
+                log('版本补丁已应用: ' + (data.output || ''), 'success');
+                loadPakStatus();
+            })
+            .catch(function(e) { showToast('应用失败: ' + e.message); });
     }
 
 })();

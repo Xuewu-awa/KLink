@@ -28,18 +28,23 @@ public final class KardsHttpHandler implements SimpleHttpServer.Handler {
     private final AssetStore assets;
     private final MatchManager matches;
     private final SimpleWebSocketServer webSockets;
+    private final CardIdManager cardIds;
+    private final VersionPakManager versionPak;
     private final ActionCipher actionCipher = new ActionCipher();
     private final Random random = new Random();
     private final Set<String> excluded = new HashSet<String>();
     private final Map<String, String> nicknamesByAddress = new HashMap<String, String>();
 
     public KardsHttpHandler(ServerConfig config, KardsDatabase database, AssetStore assets,
-                            MatchManager matches, SimpleWebSocketServer webSockets) {
+                            MatchManager matches, SimpleWebSocketServer webSockets,
+                            CardIdManager cardIds, VersionPakManager versionPak) {
         this.config = config;
         this.database = database;
         this.assets = assets;
         this.matches = matches;
         this.webSockets = webSockets;
+        this.cardIds = cardIds;
+        this.versionPak = versionPak;
         excluded.add("/");
         excluded.add("/session");
         excluded.add("/.com/config");
@@ -63,7 +68,11 @@ public final class KardsHttpHandler implements SimpleHttpServer.Handler {
     @Override
     public HttpResponse handle(HttpRequest request) throws Exception {
         try {
-            return route(request);
+            HttpResponse response = route(request);
+            if (response != null) {
+                response.headers.put("Access-Control-Allow-Origin", "*");
+            }
+            return response;
         } catch (Unauthorized e) {
             JSONObject error = new JSONObject();
             error.put("title", "401 Unauthorized");
@@ -101,6 +110,7 @@ public final class KardsHttpHandler implements SimpleHttpServer.Handler {
         if ("POST".equals(method) && "/search-user".equals(path)) return emptySearch(request);
         if ("POST".equals(method) && "/search-match".equals(path)) return emptySearch(request);
         if (path.startsWith("/launcher/room/")) return launcherRoom(request);
+        if (path.startsWith("/admin/")) return admin(request);
 
         UserRecord user = authenticate(request);
         String[] parts = segments(path);
@@ -312,6 +322,120 @@ public final class KardsHttpHandler implements SimpleHttpServer.Handler {
             return HttpResponse.json(200, new JSONObject().put("ok", true).put("player_id", playerId).put("was_online", online));
         }
         throw new NotFound();
+    }
+
+    /**
+     * 管理端点 /admin/*：本机地址直接放行，非本机需 admin_token。
+     */
+    private HttpResponse admin(HttpRequest request) throws Exception {
+        try {
+            return adminInner(request);
+        } catch (IllegalArgumentException e) {
+            return HttpResponse.json(400, new JSONObject().put("error", e.getMessage()));
+        }
+    }
+
+    private HttpResponse adminInner(HttpRequest request) throws Exception {
+        String path = request.path;
+        String method = request.method;
+        if ("GET".equals(method) && "/admin/library".equals(path)) {
+            requireAdmin(request, null);
+            return HttpResponse.json(200, cardIds.listCards(request.query.get("q"), 0));
+        }
+        if ("POST".equals(method) && "/admin/library".equals(path)) {
+            JSONObject body = request.jsonBody();
+            requireAdmin(request, body);
+            int id = body.optInt("id");
+            if (id <= 0) {
+                throw new IllegalArgumentException("数字 ID（id）必须为正整数");
+            }
+            cardIds.addOrUpdateCard(body.optString("card_type"), id, body.optInt("count", 4));
+            return HttpResponse.json(200, new JSONObject().put("ok", true));
+        }
+        if ("DELETE".equals(method) && "/admin/library".equals(path)) {
+            requireAdmin(request, null);
+            Set<Integer> ids = parseIdSet(request.query.get("id"));
+            cardIds.deleteCards(ids);
+            return HttpResponse.json(200, new JSONObject().put("ok", true).put("deleted", ids.size()));
+        }
+        if ("GET".equals(method) && "/admin/decks".equals(path)) {
+            requireAdmin(request, null);
+            return HttpResponse.json(200, cardIds.listDecks(request.query.get("q"), 0));
+        }
+        if ("POST".equals(method) && "/admin/decks".equals(path)) {
+            JSONObject body = request.jsonBody();
+            requireAdmin(request, body);
+            cardIds.addOrUpdateDeck(body.optString("code"), body.optString("card"), body.optInt("ID"));
+            return HttpResponse.json(200, new JSONObject().put("ok", true));
+        }
+        if ("DELETE".equals(method) && "/admin/decks".equals(path)) {
+            requireAdmin(request, null);
+            Set<String> codes = parseCodeSet(request.query.get("code"));
+            cardIds.deleteDecks(codes);
+            return HttpResponse.json(200, new JSONObject().put("ok", true).put("deleted", codes.size()));
+        }
+        if ("POST".equals(method) && "/admin/check".equals(path)) {
+            requireAdmin(request, null);
+            return HttpResponse.json(200, cardIds.checkConsistency());
+        }
+        if ("POST".equals(method) && "/admin/save".equals(path)) {
+            requireAdmin(request, null);
+            return HttpResponse.json(200, cardIds.saveAll());
+        }
+        if ("GET".equals(method) && "/admin/pak/status".equals(path)) {
+            requireAdmin(request, null);
+            return HttpResponse.json(200, versionPak.status());
+        }
+        if ("POST".equals(method) && "/admin/pak/apply".equals(path)) {
+            JSONObject body = request.jsonBody();
+            requireAdmin(request, body);
+            boolean rewrite = body.optBoolean("rewrite", true);
+            String version = body.has("version") ? body.optString("version") : null;
+            return HttpResponse.json(200, versionPak.apply(version, rewrite));
+        }
+        throw new NotFound();
+    }
+
+    private void requireAdmin(HttpRequest request, JSONObject body) throws Unauthorized {
+        if (isLocalAddress(request.remoteAddress)) {
+            return;
+        }
+        if (isAdminRequest(request, body == null ? new JSONObject() : body)) {
+            return;
+        }
+        throw new Unauthorized();
+    }
+
+    private static Set<Integer> parseIdSet(String raw) {
+        Set<Integer> ids = new HashSet<Integer>();
+        if (raw == null) {
+            return ids;
+        }
+        for (String part : raw.split(",")) {
+            part = part.trim();
+            if (part.length() == 0) {
+                continue;
+            }
+            try {
+                ids.add(Integer.parseInt(part));
+            } catch (Exception ignored) {
+            }
+        }
+        return ids;
+    }
+
+    private static Set<String> parseCodeSet(String raw) {
+        Set<String> codes = new HashSet<String>();
+        if (raw == null) {
+            return codes;
+        }
+        for (String part : raw.split(",")) {
+            part = part.trim();
+            if (part.length() > 0) {
+                codes.add(part);
+            }
+        }
+        return codes;
     }
 
     private JSONObject launcherRoomStatus() throws Exception {

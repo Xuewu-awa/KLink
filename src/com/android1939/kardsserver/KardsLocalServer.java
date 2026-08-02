@@ -17,6 +17,8 @@ public final class KardsLocalServer {
     private MatchManager matches;
     private SimpleHttpServer httpServer;
     private SimpleWebSocketServer webSocketServer;
+    private CardIdManager cardIds;
+    private VersionPakManager versionPak;
 
     public synchronized void start(Context context, ServerConfig requestedConfig) throws Exception {
         if (isRunning()) {
@@ -25,12 +27,14 @@ public final class KardsLocalServer {
         config = requestedConfig == null ? new ServerConfig() : requestedConfig.copy();
         Context appContext = context.getApplicationContext();
         assets = new AssetStore(appContext);
+        cardIds = new CardIdManager(assets);
+        versionPak = new VersionPakManager(appContext);
         database = new KardsDatabase(appContext, config.databaseName);
         database.getWritableDatabase();
         matches = new MatchManager(database, assets);
         webSocketServer = new SimpleWebSocketServer(config, database, matches);
         httpServer = new SimpleHttpServer(config.bindHost, config.httpPort,
-                new KardsHttpHandler(config, database, assets, matches, webSocketServer));
+                new KardsHttpHandler(config, database, assets, matches, webSocketServer, cardIds, versionPak));
         webSocketServer.start();
         httpServer.start();
         ServerLog.add("room", "server started: " + config.roomName);
@@ -49,6 +53,8 @@ public final class KardsLocalServer {
         matches = null;
         database = null;
         assets = null;
+        cardIds = null;
+        versionPak = null;
     }
 
     public synchronized boolean isRunning() {

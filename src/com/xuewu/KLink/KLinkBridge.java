@@ -565,6 +565,15 @@ public class KLinkBridge {
         activity.runOnUiThread(new Runnable() {
             @Override
             public void run() {
+                // 启动游戏前应用版本补丁（本地模式原样复制，远程/局域网模式改写版本号）
+                try {
+                    com.android1939.kardsserver.VersionPakManager pakManager =
+                            new com.android1939.kardsserver.VersionPakManager(activity.getApplicationContext());
+                    pakManager.applyBeforeLaunch(currentMode);
+                } catch (Exception e) {
+                    android.widget.Toast.makeText(activity,
+                            "版本补丁未应用: " + e.getMessage(), android.widget.Toast.LENGTH_LONG).show();
+                }
                 if (activity instanceof MainActivity) {
                     ((MainActivity) activity).launchGame();
                 }
