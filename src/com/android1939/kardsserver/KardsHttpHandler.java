@@ -68,6 +68,15 @@ public final class KardsHttpHandler implements SimpleHttpServer.Handler {
     @Override
     public HttpResponse handle(HttpRequest request) throws Exception {
         try {
+            // CORS 预检：浏览器对跨域 POST/DELETE 先发 OPTIONS，必须直接放行
+            if ("OPTIONS".equals(request.method)) {
+                HttpResponse preflight = HttpResponse.empty(204);
+                preflight.headers.put("Access-Control-Allow-Origin", "*");
+                preflight.headers.put("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
+                preflight.headers.put("Access-Control-Allow-Headers", "Content-Type, x-kards-room-admin");
+                preflight.headers.put("Access-Control-Max-Age", "86400");
+                return preflight;
+            }
             HttpResponse response = route(request);
             if (response != null) {
                 response.headers.put("Access-Control-Allow-Origin", "*");

@@ -485,12 +485,21 @@
     function apiFetch(path, options) {
         const opts = options || {};
         opts.headers = Object.assign({'Content-Type': 'application/json'}, opts.headers || {});
-        return fetch(API_BASE + path, opts).then(function(res) {
-            return res.json().catch(function() { return {}; });
-        }).then(function(data) {
-            if (data && data.error) throw new Error(data.error);
-            return data;
-        });
+        return fetch(API_BASE + path, opts)
+            .then(function(res) {
+                return res.json().catch(function() { return {}; });
+            })
+            .then(function(data) {
+                if (data && data.error) throw new Error(data.error);
+                return data;
+            })
+            .catch(function(e) {
+                const msg = e && e.message ? String(e.message) : String(e);
+                if (msg.indexOf('Failed to fetch') !== -1 || msg.indexOf('NetworkError') !== -1) {
+                    throw new Error('无法连接本地服务器（请先启动服务器）');
+                }
+                throw e;
+            });
     }
 
     function apiParam(obj) {
