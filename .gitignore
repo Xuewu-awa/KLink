@@ -1,0 +1,19 @@
+# 工具生成的会话元数据，不属于项目源码
+.reasonix/
+**/.reasonix/
+
+# 构建产物（dex 由 builder/ 生成，不入库）
+build/
+*.dex
+*.class
+
+# 编辑器 / 系统
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# 日志与临时文件
+*.log
+*.tmp
