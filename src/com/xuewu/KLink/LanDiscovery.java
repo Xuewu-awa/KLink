@@ -67,11 +67,15 @@ public final class LanDiscovery {
     // ==================== 广播（房主端） ====================
 
     /**
-     * 开始广播房间信息。
+     * 开播。注意这里也持 MulticastLock ——
+     * 原实现只在 {@link #startScan()}（客户端扫描）里取锁，房主端**只有广播**，
+     * 于是从不持锁。Android 的 WiFi 省电会在驱动层过滤组播/广播帧，
+     * 房主端发出的房间广播可能根本到不了对端。
      */
     public synchronized void startBroadcast() {
         if (broadcasting.get()) return;
         ensureSocket();
+        acquireMulticastLock();
         broadcasting.set(true);
         broadcastThread = new Thread(new Runnable() {
             @Override
@@ -88,6 +92,10 @@ public final class LanDiscovery {
         if (broadcastThread != null) {
             broadcastThread.interrupt();
             broadcastThread = null;
+        }
+        // 扫描没在跑就不用留着锁
+        if (!scanning.get()) {
+            releaseMulticastLock();
         }
     }
 
@@ -207,16 +215,52 @@ public final class LanDiscovery {
         socket = null;
     }
 
+    /**
+     * 本机局域网 IPv4。
+     *
+     * <p>原实现用 {@code WifiManager.getConnectionInfo().getIpAddress()} —— 这个 API
+     * 从 Android 6 起就被废弃，在 Android 10+ 上因为 MAC 随机化与权限收紧**恒返回 0**，
+     * 于是广播出去的是 {@code 0.0.0.0}，对端拿到一个不可用地址。</p>
+     *
+     * <p>改成遍历网卡（{@link java.net.NetworkInterface}）：不需要任何额外权限，
+     * 在 WiFi / 热点 / 以太网下都能拿到真实地址。</p>
+     */
     private String getLocalIp() {
         try {
-            WifiManager wifi = (WifiManager) context.getApplicationContext()
-                    .getSystemService(Context.WIFI_SERVICE);
-            if (wifi != null) {
-                int ip = wifi.getConnectionInfo().getIpAddress();
-                return String.format("%d.%d.%d.%d",
-                        ip & 0xff, (ip >> 8) & 0xff, (ip >> 16) & 0xff, (ip >> 24) & 0xff);
+            java.util.Enumeration<java.net.NetworkInterface> interfaces =
+                    java.net.NetworkInterface.getNetworkInterfaces();
+            String fallback = null;
+            while (interfaces != null && interfaces.hasMoreElements()) {
+                java.net.NetworkInterface nic = interfaces.nextElement();
+                if (nic == null || !nic.isUp() || nic.isLoopback()) {
+                    continue;
+                }
+                java.util.Enumeration<java.net.InetAddress> addresses = nic.getInetAddresses();
+                while (addresses.hasMoreElements()) {
+                    java.net.InetAddress address = addresses.nextElement();
+                    if (address.isLoopbackAddress() || address.isAnyLocalAddress()) {
+                        continue;
+                    }
+                    String host = address.getHostAddress();
+                    if (host == null || host.indexOf(':') >= 0) {
+                        continue;   // 跳过 IPv6
+                    }
+                    // 优先 192.168.x / 10.x / 172.16-31.x 这类典型内网地址
+                    if (host.startsWith("192.168.") || host.startsWith("10.")
+                            || host.startsWith("172.")) {
+                        return host;
+                    }
+                    if (fallback == null) {
+                        fallback = host;
+                    }
+                }
             }
-        } catch (Exception ignored) {}
+            if (fallback != null) {
+                return fallback;
+            }
+        } catch (Exception e) {
+            com.android1939.kardsserver.ServerLog.add("room", "获取本机局域网 IP 失败: " + e);
+        }
         return "0.0.0.0";
     }
 

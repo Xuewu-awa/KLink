@@ -156,6 +156,7 @@ public class KLinkBridge {
                 json.put("mode", currentMode);
                 json.put("remoteAddress", remoteAddress);
                 json.put("remotePort", remotePort);
+                json.put("admin_ui_url", getAdminUiUrl());
                 return json.toString();
             }
         } catch (Exception ignored) {}
@@ -166,9 +167,83 @@ public class KLinkBridge {
             json.put("mode", currentMode);
             json.put("remoteAddress", remoteAddress);
             json.put("remotePort", remotePort);
+            json.put("admin_ui_url", "");
             return json.toString();
         } catch (Exception e) {
             return "{}";
+        }
+    }
+
+    /**
+     * 后台管理界面的地址。私服在运行时指向本机回环地址上的 /admin-ui/，
+     * 与桌面端一致（fyserver 也是服务器自己发这套页面）。
+     * 未运行时返回空串，调用方据此决定回退到本地 KLink 界面。
+     */
+    public String getAdminUiUrl() {
+        if (kardsServer == null || !kardsServer.isRunning()) {
+            return "";
+        }
+        return "http://127.0.0.1:" + serverConfig.httpPort + "/admin-ui/";
+    }
+
+    /**
+     * 从 KLink 面板跳回私服发出的管理后台。
+     * 后台是主界面，这条是回去的路；私服没跑时给出提示而不是白屏。
+     */
+    @JavascriptInterface
+    public void openAdminUi() {
+        final String url = getAdminUiUrl();
+        if (url == null || url.length() == 0) {
+            emitError("私服未运行，请先启动服务器");
+            showToast("私服未运行，请先启动服务器");
+            return;
+        }
+        activity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                webView.loadUrl(url);
+            }
+        });
+    }
+
+    /** 当前是否运行的是"服务器自己发页面"的模式（local / lan）。 */
+    public boolean isServerMode() {
+        return kardsServer != null && kardsServer.isRunning();
+    }
+
+    /**
+     * 供版本补丁使用：返回用于决定是否改写版本号的模式。
+     * 后台页面上点「启动游戏」时拿不到 KLink 面板的 currentMode，用它兜底。
+     */
+    public String currentModeForPatch() {
+        if (currentMode == null || "none".equals(currentMode)) {
+            return isServerMode() ? "local" : "remote";
+        }
+        return currentMode;
+    }
+
+    /**
+     * 供启动流程（MainActivity 显示欢迎界面时）在后台线程调用：
+     * 按已保存的设置启动私服。remote 模式不在此处启动（那是代理，不是发页面的模式）。
+     *
+     * @return 实际启动的模式；未启动返回 null
+     */
+    public String autoStartSavedMode() {
+        try {
+            SharedPreferences p = prefs();
+            String mode = p.getString(KEY_MODE, "");
+            // 远程转发模式由用户在界面上显式触发（需要填地址），启动时不做
+            if (!"local".equals(mode) && !"lan".equals(mode)) {
+                return null;
+            }
+            JSONObject config = new JSONObject();
+            config.put("roomName", p.getString(KEY_ROOM_NAME, "KARDS Room"));
+            config.put("hostName", p.getString(KEY_HOST_NAME, "Host"));
+            startServer(mode, config.toString());
+            return serverRunning ? mode : null;
+        } catch (Exception e) {
+            emitError("自动启动失败: " + e.getMessage());
+            return null;
         }
     }
 

@@ -131,6 +131,20 @@
         $('#btnInstallMod').addEventListener('click', installMod);
         $('#btnLaunchGame').addEventListener('click', () => window.KLink.launchGame());
 
+        // 回管理后台（后台是主界面，这里是回到它的唯一入口）
+        var btnAdminUi = $('#btnOpenAdminUi');
+        if (btnAdminUi) {
+            btnAdminUi.addEventListener('click', function() {
+                if (window.KLinkHost && typeof window.KLinkHost.openAdminUi === 'function') {
+                    window.KLinkHost.openAdminUi();
+                } else if (typeof window.KLink.openAdminUi === 'function') {
+                    window.KLink.openAdminUi();
+                } else {
+                    window.KLink.showToast('私服未就绪，请先启动服务器');
+                }
+            });
+        }
+
         // 卡牌/卡组 ID 管理器
         $('#btnReloadCards').addEventListener('click', function() { loadCardData(); loadDeckData(); });
         $('#btnCheckConsistency').addEventListener('click', checkConsistency);

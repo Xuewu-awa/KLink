@@ -39,6 +39,20 @@ public final class MatchManager {
         this.deckCodeManager = new DeckCodeManager(assets);
     }
 
+    /**
+     * 开局卡牌是否全部按金卡下发（后台「对局配置」页可切换）。
+     * 默认 true —— 与原行为一致。只影响开局下发的外观。
+     */
+    private volatile boolean allGoldCards = true;
+
+    public void setAllGoldCards(boolean value) {
+        this.allGoldCards = value;
+    }
+
+    public boolean isAllGoldCards() {
+        return allGoldCards;
+    }
+
     public synchronized void setOnline(int userId, boolean online) {
         if (online) {
             onlinePlayers.add(userId);
@@ -80,6 +94,101 @@ public final class MatchManager {
 
     public synchronized int matchCount() {
         return matches.size();
+    }
+
+    /** 排队中的玩家总数（含自定义战斗码队列）。后台统计页用。 */
+    public synchronized int waitingCount() {
+        int total = rankedQueue.size() + casualQueue.size() + brawlQueue.size() + diyQueue.size();
+        for (ArrayDeque<Integer> queue : codeQueues.values()) {
+            total += queue.size();
+        }
+        return total;
+    }
+
+    /** 已结束的对局数（用于把"总对局"与"进行中"区分开）。 */
+    public synchronized int finishedMatchCount() {
+        int total = 0;
+        for (MatchState match : matches.values()) {
+            if (match != null && "finished".equals(match.status)) {
+                total++;
+            }
+        }
+        return total;
+    }
+
+    /**
+     * 排队中的玩家明细，供后台「对局监控」页展示。
+     * 结构为 {@code [{name: 队列名, playerIds: [..]}]}，空队列不出现在结果里
+     * （与桌面端 /admin/api/matches 的 queues 语义一致）。
+     */
+    public synchronized JSONArray waitingQueuesJson() {
+        JSONArray result = new JSONArray();
+        try {
+            appendQueue(result, "经典", rankedQueue);
+            appendQueue(result, "休闲", casualQueue);
+            appendQueue(result, "乱斗", brawlQueue);
+            appendQueue(result, "自定义", diyQueue);
+            for (Map.Entry<String, ArrayDeque<Integer>> entry : codeQueues.entrySet()) {
+                appendQueue(result, "战斗码 " + entry.getKey(), entry.getValue());
+            }
+        } catch (Exception ignored) {
+        }
+        return result;
+    }
+
+    private static void appendQueue(JSONArray result, String name, ArrayDeque<Integer> queue)
+            throws Exception {
+        if (queue == null || queue.isEmpty()) {
+            return;
+        }
+        JSONArray players = new JSONArray();
+        for (Integer playerId : queue) {
+            if (playerId == null) {
+                continue;
+            }
+            players.put(playerId.intValue());
+        }
+        JSONObject item = new JSONObject();
+        item.put("name", name);
+        item.put("playerIds", players);
+        result.put(item);
+    }
+
+    /**
+     * 当前对局快照，供后台「对局」页展示。
+     * 名字解析交给调用方（它持有数据库），这里只出对局本身的状态；
+     * 字段名对齐桌面端 /admin/api/matches 的 activeMatches 条目。
+     */
+    public synchronized JSONArray activeMatchesJson() {
+        JSONArray array = new JSONArray();
+        for (Map.Entry<Integer, MatchState> entry : matches.entrySet()) {
+            MatchState match = entry.getValue();
+            if (match == null) {
+                continue;
+            }
+            try {
+                JSONObject item = new JSONObject();
+                item.put("matchId", entry.getKey());
+                item.put("matchType", match.matchType == null || match.matchType.length() == 0
+                        ? "classic" : match.matchType);
+                item.put("status", "finished".equals(match.status)
+                        ? ("已结束" + (match.winnerSide == null || match.winnerSide.length() == 0
+                                ? "" : "（" + match.winnerSide + "）"))
+                        : "进行中");
+                item.put("currentTurn", match.currentTurn);
+                item.put("actionCount", match.actions == null ? 0 : match.actions.length());
+                item.put("leftPlayerId", match.playerLeft);
+                item.put("leftStatus", match.playerStatusLeft == null ? "" : match.playerStatusLeft);
+                item.put("leftOnline", match.leftOnline);
+                item.put("rightPlayerId", match.playerRight);
+                item.put("rightStatus", match.playerStatusRight == null ? "" : match.playerStatusRight);
+                item.put("rightOnline", match.rightOnline);
+                item.put("bot", match.botEnabled);
+                array.put(item);
+            } catch (Exception ignored) {
+            }
+        }
+        return array;
     }
 
     public synchronized boolean addToQueue(int playerId, int deckId, String extraData) throws Exception {
@@ -228,8 +337,8 @@ public final class MatchManager {
             playerDecks.remove(rightPlayer);
             return;
         }
-        match.leftCardsData = deckCodeManager.createMatchCards("left", match.leftDeckData);
-        match.rightCardsData = deckCodeManager.createMatchCards("right", match.rightDeckData);
+        match.leftCardsData = deckCodeManager.createMatchCards("left", match.leftDeckData, allGoldCards);
+        match.rightCardsData = deckCodeManager.createMatchCards("right", match.rightDeckData, allGoldCards);
         shuffleCards(match.leftCardsData);
         shuffleCards(match.rightCardsData);
         markHands(match);
@@ -345,8 +454,8 @@ public final class MatchManager {
             playing.remove(playerId);
             return;
         }
-        match.leftCardsData = deckCodeManager.createMatchCards("left", match.leftDeckData);
-        match.rightCardsData = deckCodeManager.createMatchCards("right", match.rightDeckData);
+        match.leftCardsData = deckCodeManager.createMatchCards("left", match.leftDeckData, allGoldCards);
+        match.rightCardsData = deckCodeManager.createMatchCards("right", match.rightDeckData, allGoldCards);
         shuffleCards(match.leftCardsData);
         shuffleCards(match.rightCardsData);
 

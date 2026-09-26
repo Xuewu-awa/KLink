@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>KLink</title>
+<style>
+  :root {
+    --bg:        #0a0f0e;
+    --bg-2:      #0d1514;
+    --accent:    #9ed9cc;
+    --accent-2:  #6fb3a5;
+    --text:      #dfe9e6;
+    --text-dim:  #6b8079;
+    --font-mono: "SF Mono", "Cascadia Mono", Consolas, "Roboto Mono", monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-mono);
+    -webkit-user-select: none; user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ---------- 渐变底 ---------- */
+  .stage {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    background:
+      radial-gradient(circle at 50% 42%, rgba(158,217,204,.16) 0%, rgba(158,217,204,.06) 26%, transparent 58%),
+      radial-gradient(circle at 50% 100%, rgba(111,179,165,.10) 0%, transparent 55%),
+      linear-gradient(170deg, var(--bg-2) 0%, var(--bg) 60%, #070b0a 100%);
+  }
+
+  /* 细微的扫描线，呼应「战术终端」 */
+  .stage::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: repeating-linear-gradient(
+      to bottom,
+      rgba(255,255,255,.022) 0px,
+      rgba(255,255,255,.022) 1px,
+      transparent 1px,
+      transparent 3px);
+    opacity: .55;
+  }
+
+  /* ---------- 图标 + 光晕 ---------- */
+  .badge {
+    position: relative;
+    width: 116px; height: 116px;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 26px;
+  }
+  .badge::before {
+    content: ""; position: absolute; inset: -34px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(158,217,204,.26) 0%, transparent 68%);
+    animation: breathe 3.4s ease-in-out infinite;
+  }
+  .badge img {
+    position: relative;
+    width: 100%; height: 100%;
+    object-fit: contain;
+    filter: drop-shadow(0 0 18px rgba(158,217,204,.34));
+    animation: float 3.4s ease-in-out infinite;
+  }
+
+  @keyframes breathe {
+    0%, 100% { transform: scale(1);    opacity: .62; }
+    50%      { transform: scale(1.14); opacity: 1;   }
+  }
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-6px); }
+  }
+
+  /* ---------- 文字 ---------- */
+  .brand {
+    font-size: 25px; font-weight: 700;
+    letter-spacing: 11px;
+    color: var(--accent);
+    text-indent: 11px;           /* 抵消末位字距，保持视觉居中 */
+    text-shadow: 0 0 22px rgba(158,217,204,.30);
+  }
+  .tagline {
+    margin-top: 9px;
+    font-size: 11px;
+    letter-spacing: 3.5px;
+    color: var(--text-dim);
+    text-indent: 3.5px;
+  }
+
+  /* ---------- 进度 ---------- */
+  .progress {
+    margin-top: 40px;
+    width: 232px;
+  }
+  .bar {
+    height: 2px; width: 100%;
+    background: rgba(158,217,204,.13);
+    border-radius: 1px;
+    overflow: hidden;
+  }
+  .bar > i {
+    display: block; height: 100%; width: 0%;
+    background: linear-gradient(90deg, var(--accent-2), var(--accent));
+    border-radius: 1px;
+    box-shadow: 0 0 10px rgba(158,217,204,.55);
+    transition: width .38s ease;
+  }
+  .status {
+    margin-top: 13px;
+    font-size: 11px;
+    letter-spacing: 1.4px;
+    color: var(--text-dim);
+    text-align: center;
+    min-height: 15px;
+    transition: color .25s ease;
+  }
+  .status.error { color: #e08a7a; }
+
+  .caret {
+    display: inline-block; width: 6px;
+    color: var(--accent);
+    animation: blink 1.05s step-end infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* ---------- 跳过（启动慢时的逃生口） ---------- */
+  .skip {
+    margin-top: 22px;
+    padding: 7px 20px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    background: transparent;
+    border: 1px solid rgba(158,217,204,.20);
+    border-radius: 3px;
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .4s ease, color .2s ease, border-color .2s ease;
+    -webkit-appearance: none;
+  }
+  .skip.show { opacity: 1; pointer-events: auto; }
+  .skip:active { color: var(--accent); border-color: rgba(158,217,204,.55); }
+
+  /* ---------- 底部 ---------- */
+  .footer {
+    position: absolute; bottom: 16px;
+    font-size: 10px;
+    letter-spacing: 1.6px;
+    color: rgba(107,128,121,.55);
+  }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="badge">
+      <img src="klink-icon-256.png" alt="KLink">
+    </div>
+
+    <div class="brand">KLINK</div>
+    <div class="tagline">KARDS LOCAL SERVER</div>
+
+    <div class="progress">
+      <div class="bar"><i id="bar"></i></div>
+      <div class="status" id="status">正在初始化<span class="caret">_</span></div>
+    </div>
+
+    <button class="skip" id="skip" type="button">跳过，进入控制面板</button>
+
+    <div class="footer" id="footer">v---</div>
+  </div>
+
+<script>
+  // ---- 与 Java 的约定 ----
+  //  Java → JS :  KLinkSplash.set(pct, text) / .fail(text) / .version(v)
+  //  JS   → Java:  KLinkSplashHost.beginStartup() / .openPanel() / .isServerRunning()
+  //
+  //  本页由 MainActivity 以 file:///android_asset/splash.html 加载，
+  //  页面加载完成后主动通知 Java 开始启动流程。
+  window.KLinkSplash = {
+    set: function (pct, text) {
+      var bar = document.getElementById('bar');
+      var status = document.getElementById('status');
+      var n = Number(pct);
+      if (bar && !isNaN(n)) bar.style.width = Math.max(0, Math.min(100, n)) + '%';
+      if (status && text) {
+        status.classList.remove('error');
+        status.innerHTML = String(text) + '<span class="caret">_</span>';
+      }
+    },
+    fail: function (text) {
+      var status = document.getElementById('status');
+      if (status) {
+        status.classList.add('error');
+        status.textContent = String(text || '启动失败');
+      }
+      var bar = document.getElementById('bar');
+      if (bar) bar.style.background = '#e08a7a';
+      showSkip();
+    },
+    version: function (v) {
+      var f = document.getElementById('footer');
+      if (f && v) f.textContent = 'v' + String(v);
+    }
+  };
+
+  var skipShown = false;
+  function showSkip() {
+    if (skipShown) return;
+    skipShown = true;
+    var b = document.getElementById('skip');
+    if (b) b.classList.add('show');
+  }
+
+  // 启动超过 2.5 秒仍未完成就露出"跳过"按钮，避免用户被卡在欢迎页
+  setTimeout(showSkip, 2500);
+
+  var skipBtn = document.getElementById('skip');
+  if (skipBtn) {
+    skipBtn.addEventListener('click', function () {
+      try { window.KLinkSplashHost.openPanel(); } catch (e) {}
+    });
+  }
+
+  // 版本号
+  try {
+    if (window.KLink && window.KLink.getAppVersion) {
+      window.KLinkSplash.version(window.KLink.getAppVersion());
+    }
+  } catch (e) {}
+
+  // 触发启动流程。JS 桥在 onPageFinished 之前就已注入，
+  // 但仍加一层守卫 + 重试，避免个别机型注入时序差异导致卡住。
+  function beginStartup(attempt) {
+    try {
+      if (window.KLinkSplashHost && window.KLinkSplashHost.beginStartup) {
+        window.KLinkSplashHost.beginStartup();
+        return;
+      }
+    } catch (e) {}
+    if (attempt < 10) {
+      setTimeout(function () { beginStartup(attempt + 1); }, 120);
+    } else {
+      // 桥不可用（理论上不会发生）—— 直接放行到控制面板
+      window.KLinkSplash.fail('无法连接本地服务，请返回控制面板');
+    }
+  }
+
+  window.addEventListener('load', function () { beginStartup(0); });
+</script>
+</body>
+</html>

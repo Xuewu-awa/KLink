@@ -70,6 +70,18 @@ public final class DeckCodeManager {
     }
 
     public JSONArray createMatchCards(String side, JSONObject deckData) throws Exception {
+        // 默认全金卡：与原行为一致（KLink 一直把所有牌按金卡下发）
+        return createMatchCards(side, deckData, true);
+    }
+
+    /**
+     * 生成开局卡牌数据。
+     *
+     * @param allGoldCards 是否把所有牌标记为金卡。由后台「对局配置」页控制
+     *                     （对齐桌面端的 {@code MatchConfig.AllGoldCards}，默认开启）。
+     *                     注意只影响**开局下发的外观**，不涉及收藏/开包里的金卡归属。
+     */
+    public JSONArray createMatchCards(String side, JSONObject deckData, boolean allGoldCards) throws Exception {
         JSONArray cards = new JSONArray();
         JSONObject deckCodeIds = assets.deckCodeIds();
         String hqCode = deckData.optString("hq_code", "0N");
@@ -81,7 +93,7 @@ public final class DeckCodeManager {
         JSONObject hq = new JSONObject();
         hq.put("card_id", left ? 1 : 41);
         hq.put("faction", mainCountry);
-        hq.put("is_gold", true);
+        hq.put("is_gold", allGoldCards);
         hq.put("location", left ? "board_hqleft" : "board_hqright");
         hq.put("location_number", 0);
         hq.put("name", cardName(deckCodeIds, hqCode, "card_location_london"));
@@ -98,7 +110,7 @@ public final class DeckCodeManager {
                 for (int i = 0; i < count; i++) {
                     JSONObject card = new JSONObject();
                     card.put("card_id", cardId++);
-                    card.put("is_gold", true);
+                    card.put("is_gold", allGoldCards);
                     card.put("location", location);
                     card.put("location_number", locationNumber++);
                     card.put("name", cardName(deckCodeIds, key, "card_unknown"));

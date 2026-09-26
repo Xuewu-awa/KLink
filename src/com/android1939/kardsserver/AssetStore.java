@@ -41,6 +41,11 @@ public final class AssetStore {
         return dataDir;
     }
 
+    /** 应用 Context（供其它服务读取 assets 内置文件用）。 */
+    public Context context() {
+        return context;
+    }
+
     public synchronized JSONObject library() throws Exception {
         if (library == null) {
             library = load("kards-server/library.json", "library.json");

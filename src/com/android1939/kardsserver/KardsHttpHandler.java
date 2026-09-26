@@ -1,6 +1,8 @@
 package com.android1939.kardsserver;
 
 import com.android1939.kardsserver.db.KardsDatabase;
+import com.android1939.kardsserver.http.AdminApiHandler;
+import com.android1939.kardsserver.http.AdminUiHandler;
 import com.android1939.kardsserver.http.HttpRequest;
 import com.android1939.kardsserver.http.HttpResponse;
 import com.android1939.kardsserver.http.SimpleHttpServer;
@@ -30,14 +32,21 @@ public final class KardsHttpHandler implements SimpleHttpServer.Handler {
     private final SimpleWebSocketServer webSockets;
     private final CardIdManager cardIds;
     private final VersionPakManager versionPak;
+    private final AdminUiHandler adminUi;
+    private final AdminApiHandler adminApi;
+    private final ServerOptionsStore optionsStore;
+    private final CardCatalog cardCatalog;
+    private final PlayerCards playerCards;
+    private final StoreService store;
     private final ActionCipher actionCipher = new ActionCipher();
     private final Random random = new Random();
     private final Set<String> excluded = new HashSet<String>();
     private final Map<String, String> nicknamesByAddress = new HashMap<String, String>();
 
-    public KardsHttpHandler(ServerConfig config, KardsDatabase database, AssetStore assets,
-                            MatchManager matches, SimpleWebSocketServer webSockets,
-                            CardIdManager cardIds, VersionPakManager versionPak) {
+    public KardsHttpHandler(android.content.Context context, ServerConfig config, KardsDatabase database,
+                            AssetStore assets, MatchManager matches, SimpleWebSocketServer webSockets,
+                            CardIdManager cardIds, VersionPakManager versionPak,
+                            CardCatalog cardCatalog, PlayerCards playerCards, StoreService store) {
         this.config = config;
         this.database = database;
         this.assets = assets;
@@ -45,6 +54,14 @@ public final class KardsHttpHandler implements SimpleHttpServer.Handler {
         this.webSockets = webSockets;
         this.cardIds = cardIds;
         this.versionPak = versionPak;
+        this.cardCatalog = cardCatalog;
+        this.playerCards = playerCards;
+        this.store = store;
+        // 后台（静态页 + /admin/api）：与既有 /admin/* 卡牌ID管理器分属不同前缀
+        this.adminUi = new AdminUiHandler(context);
+        this.optionsStore = new ServerOptionsStore(database, serverOptionsTemplate());
+        this.adminApi = new AdminApiHandler(config, database, matches, webSockets, cardIds,
+                optionsStore, cardCatalog, store);
         excluded.add("/");
         excluded.add("/session");
         excluded.add("/.com/config");
@@ -63,6 +80,12 @@ public final class KardsHttpHandler implements SimpleHttpServer.Handler {
         excluded.add("/clientfp");
         excluded.add("/version");
         excluded.add("/library");
+        // 后台静态资源（/admin-ui/**）匿名可访问；数据接口 /admin/api/* 的鉴权
+        // 由 AdminApiHandler 自己负责（回环免登录、其余需 X-Admin-Key）。
+        excluded.add("/admin-ui");
+        excluded.add("/admin-ui/");
+        excluded.add("/admin/api");
+        excluded.add("/admin/api/");
     }
 
     @Override
@@ -119,18 +142,61 @@ public final class KardsHttpHandler implements SimpleHttpServer.Handler {
         if ("POST".equals(method) && "/search-user".equals(path)) return emptySearch(request);
         if ("POST".equals(method) && "/search-match".equals(path)) return emptySearch(request);
         if (path.startsWith("/launcher/room/")) return launcherRoom(request);
+        // 后台管理 API 必须在 /admin/ 之前判断：/admin/api/xxx 也满足 startsWith("/admin/")
+        if (AdminApiHandler.handles(path)) return adminApi.handle(request);
+        if (path.startsWith("/admin-ui/")) return adminUi.handle(request);
         if (path.startsWith("/admin/")) return admin(request);
+
+        // ---- 商店（不要求已认证的路径在下面单独处理；这里客户端都带 Authorization）----
+        if (("/store/v2/".equals(path) || "/store/".equals(path)) && "GET".equals(method)) {
+            return storeResponse(request);
+        }
+        if (("/store/v2/txn".equals(path) || "/store/txn".equals(path)) && "POST".equals(method)) {
+            return storeTransaction(request);
+        }
 
         UserRecord user = authenticate(request);
         String[] parts = segments(path);
+
+        // 卡牌库：用卡牌目录生成（对齐桌面端），不再是静态 library.json
         if (parts.length == 3 && "players".equals(parts[0])
                 && ("library".equals(parts[2]) || "librarynew".equals(parts[2])) && "GET".equals(method)) {
-            return HttpResponse.json(200, assets.library());
+            if ("librarynew".equals(parts[2])) {
+                int playerId = parseId(parts[1]);
+                requireSameUser(user, playerId);
+                return playerCollection(playerId);
+            }
+            try {
+                // 用缓存版：这份数据 2000+ 条，每次进游戏重建会明显卡顿
+                HttpResponse response = HttpResponse.jsonText(200, cardCatalog.buildClientLibraryJson());
+                response.contentType = "application/json; charset=utf-8";
+                return response;
+            } catch (Exception e) {
+                // 目录不可用时退回原有静态卡库，保证组卡不被卡住
+                ServerLog.add("error", "card catalog unavailable: " + e.getMessage());
+                return HttpResponse.json(200, assets.library());
+            }
+        }
+        if (parts.length == 3 && "players".equals(parts[0]) && "library".equals(parts[2])
+                && "PUT".equals(method)) {
+            int playerId = parseId(parts[1]);
+            requireSameUser(user, playerId);
+            return craftFromWildcard(request, playerId);
         }
         if (parts.length == 3 && "players".equals(parts[0]) && "packs".equals(parts[2]) && "GET".equals(method)) {
             int playerId = parseId(parts[1]);
             requireSameUser(user, playerId);
-            return packs();
+            return playerPacks(playerId);
+        }
+        if (parts.length == 3 && "players".equals(parts[0]) && "packs".equals(parts[2]) && "PUT".equals(method)) {
+            int playerId = parseId(parts[1]);
+            requireSameUser(user, playerId);
+            return openPack(request, playerId);
+        }
+        if (parts.length == 3 && "players".equals(parts[0]) && "resources".equals(parts[2]) && "GET".equals(method)) {
+            int playerId = parseId(parts[1]);
+            requireSameUser(user, playerId);
+            return playerResources(playerId);
         }
         if (parts.length == 3 && "players".equals(parts[0]) && "notifications".equals(parts[1]) && "GET".equals(method)) {
             int playerId = parseId(parts[2]);
@@ -282,17 +348,43 @@ public final class KardsHttpHandler implements SimpleHttpServer.Handler {
         return HttpResponse.json(200, json);
     }
 
+    /**
+     * 客户端登录：{@code POST /session}。
+     *
+     * <p>语义对齐桌面端 fyserver —— **不校验密码**，用户名即身份，首次出现自动建号。
+     * 客户端登录框里的密码字段实际是每次安装都会变的设备标识，
+     * 拿它当门槛会让老设备永远登不进来。</p>
+     */
     private HttpResponse session(HttpRequest request) throws Exception {
         JSONObject body = request.jsonBody();
-        String username = body.optString("username", "guest");
+        String username = body.optString("username", "");
+        if (username.trim().length() == 0) {
+            username = "guest";
+        }
         String password = body.optString("password", "");
         UserRecord user = database.getOrCreateUser(username, password);
+        if (user == null) {
+            // 理论上不会发生（用户名兜底 + 不校验密码），留个明确日志而不是让调用方 NPE
+            ServerLog.add("error", "session: 建号/取号失败 username=" + username);
+            JSONObject error = new JSONObject();
+            error.put("message", "无法创建或读取该用户");
+            return HttpResponse.json(400, error);
+        }
         String preferredName = preferredNameFor(request);
         if (preferredName.length() > 0 && !preferredName.equals(user.playerName)) {
             user = database.setPlayerName(user.id, preferredName);
         }
         String token = JwtUtil.create(config.jwtSecret, user.id, user.username, TimeUtil.nowSeconds() + 86400);
         database.updateUserJwt(user.id, token);
+        // 后台「用户管理」页要展示最近登录来源，这里记一次成功登录
+        database.recordLogin(user.id, request.remoteAddress,
+                request.header("user-agent") == null ? "" : request.header("user-agent"));
+        // 新号首次登录送几个初始卡包，"一进游戏就能开包"（已有 packs_json 则不动）
+        try {
+            playerCards.ensureInitialPacks(user, KardsLocalServer.startingPacks());
+        } catch (Exception e) {
+            ServerLog.add("error", "initial packs failed: " + e.getMessage());
+        }
         user = database.findUserById(user.id);
         JSONObject response = playerSessionJson(request, user, token);
         return HttpResponse.json(200, response);
@@ -532,9 +624,10 @@ public final class KardsHttpHandler implements SimpleHttpServer.Handler {
         json.put("is_officer", true);
         json.put("has_been_officer", true);
         json.put("stars", 120);
-        json.put("gold", 78);
-        json.put("diamonds", 91);
-        json.put("dust", 0);
+        // 货币改为真实持久化值（原先硬编码 78/91/0，开包购买重启就复原）
+        json.put("gold", user.gold);
+        json.put("diamonds", user.diamonds);
+        json.put("dust", user.dust);
         json.put("draft_admissions", 1);
         json.put("claimable_crate_level", 0);
         json.put("email", JSONObject.NULL);
@@ -1120,13 +1213,136 @@ public final class KardsHttpHandler implements SimpleHttpServer.Handler {
         return HttpResponse.json(200, json);
     }
 
-    private HttpResponse packs() throws Exception {
-        JSONArray packs = new JSONArray();
-        for (int i = 0; i < 40; i++) {
-            packs.put(new JSONObject().put("card_set", "5|Core").put("id", 0));
-            packs.put(new JSONObject().put("card_set", "7|Core").put("id", 1));
+    // ==================== 真开包 / 收藏 / 商店 ====================
+    //
+    // 字段名注意：本组端点用的是 **snake_case**（card_set / gold_card_count …），
+    // 与后台 /admin/api/* 的 camelCase 不同。桌面端靠两套 JsonContext 区分
+    // （FyJsonContext 走线路、StoreJsonContext 走落盘），Java 这边手工拼 JSON，
+    // 必须逐字段照抄客户端期望的名字。
+
+    /** {@code GET /players/{id}/packs} —— 真实卡包列表（原先是硬编码 2 张 Core 包的桩）。 */
+    private HttpResponse playerPacks(int playerId) throws Exception {
+        JSONArray result = new JSONArray();
+        for (JSONObject pack : playerCards.readPacks(playerId)) {
+            result.put(toClientPack(pack));
         }
-        return HttpResponse.json(200, packs);
+        return HttpResponse.json(200, result);
+    }
+
+    /** 存储格式是 camelCase，下发给客户端要转成 snake_case。 */
+    private static JSONObject toClientPack(JSONObject stored) throws Exception {
+        JSONObject pack = new JSONObject();
+        pack.put("id", stored.optInt("id", 0));
+        pack.put("card_set", stored.optString("cardSet", ""));
+        pack.put("create_date", stored.optString("createDate", ""));
+        pack.put("modify_date", stored.optString("modifyDate", ""));
+        pack.put("player_id", stored.optInt("playerId", 0));
+        if (stored.has("details") && !stored.isNull("details")) {
+            pack.put("details", stored.optString("details", ""));
+        } else {
+            pack.put("details", JSONObject.NULL);
+        }
+        if (stored.has("dateOpened") && !stored.isNull("dateOpened")) {
+            pack.put("date_opened", stored.optString("dateOpened", ""));
+        } else {
+            pack.put("date_opened", JSONObject.NULL);
+        }
+        return pack;
+    }
+
+    /** {@code PUT /players/{id}/packs} —— 开包。 */
+    private HttpResponse openPack(HttpRequest request, int playerId) throws Exception {
+        JSONObject body = request.jsonBody();
+        if (!body.has("id")) {
+            return storeFailure("Invalid pack id");
+        }
+        int packId = body.optInt("id", -1);
+        UserRecord target = database.findUserById(playerId);
+        if (target == null) {
+            return HttpResponse.json(404, new JSONObject().put("message", "player not found"));
+        }
+        try {
+            JSONObject result = playerCards.openPack(target, packId);
+            ServerLog.add("room", "pack opened: player=" + playerId + " pack=" + packId);
+            return HttpResponse.json(200, result);
+        } catch (PlayerCards.CardOperationException e) {
+            return storeFailure(e.getMessage());
+        }
+    }
+
+    /** {@code GET /players/{id}/librarynew} —— 玩家自己的卡牌收藏。 */
+    private HttpResponse playerCollection(int playerId) throws Exception {
+        return HttpResponse.json(200, playerCards.readUserCards(playerId));
+    }
+
+    /** {@code PUT /players/{id}/library} —— 万能牌合成。 */
+    private HttpResponse craftFromWildcard(HttpRequest request, int playerId) throws Exception {
+        JSONObject body = request.jsonBody();
+        String action = body.optString("action", "");
+        if (!"create_card_from_wildcard".equals(action)) {
+            return storeFailure("Unsupported library action");
+        }
+        String value = body.optString("value", "");
+        int split = value.indexOf(';');
+        if (split <= 0 || split >= value.length() - 1) {
+            return storeFailure("Invalid wildcard craft value");
+        }
+        String targetId = value.substring(0, split);
+        String wildcardId = value.substring(split + 1);
+        UserRecord target = database.findUserById(playerId);
+        if (target == null) {
+            return HttpResponse.json(404, new JSONObject().put("message", "player not found"));
+        }
+        try {
+            return HttpResponse.json(200, playerCards.craftFromWildcard(target, targetId, wildcardId));
+        } catch (PlayerCards.CardOperationException e) {
+            return storeFailure(e.getMessage());
+        }
+    }
+
+    /** {@code GET /players/{id}/resources} —— 货币余额。 */
+    private HttpResponse playerResources(int playerId) throws Exception {
+        UserRecord user = database.findUserById(playerId);
+        if (user == null) {
+            return HttpResponse.json(404, new JSONObject().put("message", "player not found"));
+        }
+        JSONObject json = new JSONObject();
+        json.put("diamonds", user.diamonds);
+        json.put("gold", user.gold);
+        return HttpResponse.json(200, json);
+    }
+
+    /** 购买失败：{@code {message, status:400}}，与桌面端同形（客户端据此显示原因）。 */
+    private static HttpResponse storeFailure(String message) throws Exception {
+        JSONObject json = new JSONObject();
+        json.put("message", message == null ? "purchase failed" : message);
+        json.put("status", 400);
+        return HttpResponse.json(400, json);
+    }
+
+    // ---- 商店 ----
+
+    private HttpResponse storeResponse(HttpRequest request) throws Exception {
+        UserRecord user = authenticate(request);
+        if (user == null) {
+            return storeFailure("unauthorized");
+        }
+        return HttpResponse.json(200, store.buildStoreResponse(user));
+    }
+
+    private HttpResponse storeTransaction(HttpRequest request) throws Exception {
+        UserRecord user = authenticate(request);
+        if (user == null) {
+            return storeFailure("unauthorized");
+        }
+        try {
+            JSONObject result = store.buyOffer(user, request.jsonBody());
+            ServerLog.add("room", "store purchase ok: player=" + user.id);
+            return HttpResponse.json(200, result);
+        } catch (StoreService.StoreException e) {
+            ServerLog.add("room", "store purchase rejected: " + e.getMessage());
+            return storeFailure(e.getMessage());
+        }
     }
 
     private HttpResponse recordData() throws Exception {
@@ -1384,7 +1600,32 @@ public final class KardsHttpHandler implements SimpleHttpServer.Handler {
         return json;
     }
 
+    /**
+     * 本次 {@code /session} 要下发的 {@code server_options}。
+     *
+     * <p>取值来自 {@link ServerOptionsStore}（可在后台「服务器配置」页编辑），
+     * 不再硬编码在这里；{@link #serverOptionsTemplate()} 只作为首次运行的种子。
+     * 其中 {@code websocketurl} 与 {@code versions} 由服务器强制计算。</p>
+     */
     private String serverOptions(HttpRequest request) {
+        return optionsStore.readForSession(webSocketUrl(request), clientVersions());
+    }
+
+    /** 允许连接的客户端版本白名单；末位必须与版本补丁 pak 写入的版本一致。 */
+    private String[] clientVersions() {
+        return new String[]{
+                "Kards 1.47", "Kards 1.49", "Kards 1.50", "Kards 1.52",
+                "Kards 1.52.25476.launcher", "Kards 1.53", "Kards 1.54",
+                "Kards 1.54.26471.APK", "Kards 1.56",
+                VersionPakManager.DEFAULT_VERSION // "KLink 29452.29452" 版本补丁默认值
+        };
+    }
+
+    /**
+     * 内置默认模板。仅在首次运行（数据库里还没有配置）时用作种子，
+     * 之后以数据库中的配置为准。
+     */
+    private JSONObject serverOptionsTemplate() {
         try {
             JSONObject options = new JSONObject();
             options.put("christmas_music", 0);
@@ -1412,19 +1653,16 @@ public final class KardsHttpHandler implements SimpleHttpServer.Handler {
             options.put("new_rewards", 1);
             options.put("most_popular_products", "304;238;318;319;320;321;322;324;11;270;1;52;45;18;56;72;7;149;70;143;9;53;57;75;151;228;153;79");
             options.put("winter_war_date", "2023.11.29-09.00.00");
-            options.put("websocketurl", webSocketUrl(request));
+            // websocketurl / versions 是强制项的占位值，实际下发时由
+            // ServerOptionsStore 用服务器计算的结果覆盖
+            options.put("websocketurl", "");
             options.put("homefront_date", "2025.11.27-09.00.00");
             options.put("show_full_image", true);
             options.put("new_effect_bar", 1);
             options.put("new_effect_bar_pc", 1);
             options.put("new_effect_icons", 1);
             options.put("feature_socketerror_popup_enabled", 1);
-            options.put("versions", stringArray(new String[]{
-                    "Kards 1.47", "Kards 1.49", "Kards 1.50", "Kards 1.52",
-                    "Kards 1.52.25476.launcher", "Kards 1.53", "Kards 1.54",
-                    "Kards 1.54.26471.APK", "Kards 1.56",
-                    VersionPakManager.DEFAULT_VERSION // "KLink 29452.29452" 版本补丁默认值
-            }));
+            options.put("versions", stringArray(clientVersions()));
             JSONArray locked = new JSONArray();
             locked.put(new JSONObject()
                     .put("cards", stringArray(new String[]{
@@ -1454,9 +1692,9 @@ public final class KardsHttpHandler implements SimpleHttpServer.Handler {
             options.put("give_guest_name", 0);
             options.put("anzac", 1);
             options.put("oceania_storm_date", "2026.06.11-08.00.00");
-            return options.toString();
+            return options;
         } catch (Exception e) {
-            return "{}";
+            return new JSONObject();
         }
     }
 

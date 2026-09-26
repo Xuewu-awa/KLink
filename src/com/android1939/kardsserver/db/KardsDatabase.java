@@ -17,7 +17,7 @@ import java.util.Locale;
 import java.util.Random;
 
 public final class KardsDatabase extends SQLiteOpenHelper {
-    private static final int VERSION = 1;
+    private static final int VERSION = 2;
     public static final String[] EQUIPMENT_COLUMNS = {
             "avatar",
             "item_Germany", "item_Britain", "item_Soviet", "item_USA", "item_Japan",
@@ -72,24 +72,80 @@ public final class KardsDatabase extends SQLiteOpenHelper {
                 + "FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE)");
         db.execSQL("CREATE TABLE IF NOT EXISTS server_settings (key TEXT PRIMARY KEY, value TEXT)");
         db.execSQL("CREATE TABLE IF NOT EXISTS ban_entries (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, ip TEXT, device TEXT, expires_at INTEGER)");
+        ensureColumns(db);
+    }
+
+    /**
+     * v2 追加的列。
+     *
+     * <p>后台「用户管理」页需要展示最近登录信息（桌面端 fyserver 的
+     * {@code lastLoginAt/lastLoginIp/lastLoginDevice} 与 {@code createdAt}）；
+     * 货币三件套（gold/diamonds/dust）则是真开包与购买功能的前提 ——
+     * 手机端原本把它们硬编码在响应里，重启就会复原。</p>
+     *
+     * <p>这与既有的 {@link #EQUIPMENT_COLUMNS} 是同一套"列不存在就补"的思路：
+     * onCreate 时全量建好，onUpgrade 时增量补齐，老存档不会丢数据。</p>
+     */
+    private static final String[][] ADDED_COLUMNS = {
+            {"last_login_at", "TEXT"},
+            {"last_login_ip", "TEXT"},
+            {"last_login_device", "TEXT"},
+            {"gold", "INTEGER NOT NULL DEFAULT 0"},
+            {"diamonds", "INTEGER NOT NULL DEFAULT 0"},
+            {"dust", "INTEGER NOT NULL DEFAULT 0"},
+            {"banned", "INTEGER NOT NULL DEFAULT 0"},
+            // 真开包系统（对齐桌面端 User.Packs / User.UserCards / User.PurchasedOffers）
+            {"packs_json", "TEXT"},
+            {"user_cards_json", "TEXT"},
+            {"purchased_offers_json", "TEXT"},
+    };
+
+    /** 缺哪列补哪列。重复执行是安全的（已存在时 ALTER 会抛异常，忽略即可）。 */
+    private static void ensureColumns(SQLiteDatabase db) {
+        for (String[] column : ADDED_COLUMNS) {
+            try {
+                db.execSQL("ALTER TABLE users ADD COLUMN " + column[0] + " " + column[1]);
+            } catch (Exception ignored) {
+                // 列已存在
+            }
+        }
     }
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+        if (oldVersion < 2) {
+            ensureColumns(db);
+        }
     }
 
+    /**
+     * 按用户名取用户，不存在则创建。**不校验密码**。
+     *
+     * <h3>为什么去掉密码校验（对齐桌面端）</h3>
+     * 桌面端 fyserver 的 {@code /session} 只做「按 username 查用户，查不到就建」，
+     * 完全不看客户端提交的 password —— 这符合私服定位：客户端登录框里填的用户名
+     * 就是身份，密码字段实际是设备标识（每次安装都会变）。
+     *
+     * <p>原来的实现会对已存在的用户 {@code verifyPassword}，不匹配直接返回 null，
+     * 调用方随即 NPE → 客户端拿到 500 → **登不进去**。装了 KLink 的机器上
+     * 只要客户端换一个密码（或这是另一个人的设备）就会永久登录失败。</p>
+     *
+     * <p>密码仍然会在**建号**时哈希存下来（users.password 列保留），
+     * 只是不再作为登录门槛；将来若要做真正的账号体系可以再启用。</p>
+     */
     public synchronized UserRecord getOrCreateUser(String username, String password) {
         UserRecord existing = findUserByUsername(username);
         if (existing != null) {
-            // 验证密码（即使是本地服务器也应校验，防止冒名登录）
-            if (!verifyPassword(existing.password, password)) {
-                return null;
-            }
             return existing;
+        }
+        // 新号：username 为空会让 NOT NULL UNIQUE 列插入失败，兜一个占位名
+        String name = username == null ? "" : username.trim();
+        if (name.length() == 0) {
+            name = "player_" + System.currentTimeMillis();
         }
         SQLiteDatabase db = getWritableDatabase();
         ContentValues values = new ContentValues();
-        values.put("username", username);
+        values.put("username", name);
         values.put("password", hashPassword(password == null ? "" : password));
         values.put("player_name", "<anon>");
         values.put("player_tag", 0);
@@ -200,6 +256,107 @@ public final class KardsDatabase extends SQLiteOpenHelper {
         ContentValues values = new ContentValues();
         values.put("is_online", online ? 1 : 0);
         getWritableDatabase().update("users", values, "id=?", new String[]{String.valueOf(userId)});
+    }
+
+    /**
+     * 记录一次成功登录，供后台「用户管理」页展示来源信息。
+     * 登录失败不应调用（避免把失败尝试写进去）。
+     */
+    public synchronized void recordLogin(int userId, String ip, String device) {
+        ContentValues values = new ContentValues();
+        values.put("last_login_at", TimeUtil.nowIso());
+        values.put("last_login_ip", ip == null ? "" : ip);
+        values.put("last_login_device", device == null ? "" : device);
+        getWritableDatabase().update("users", values, "id=?", new String[]{String.valueOf(userId)});
+    }
+
+    /** 读取一个整数型用户字段（货币、封禁位等），失败返回默认值。 */
+    public synchronized long getUserLong(int userId, String column, long fallback) {
+        Cursor cursor = null;
+        try {
+            cursor = getReadableDatabase().query("users", new String[]{column},
+                    "id=?", new String[]{String.valueOf(userId)}, null, null, null);
+            if (cursor.moveToFirst() && !cursor.isNull(0)) {
+                return cursor.getLong(0);
+            }
+        } catch (Exception ignored) {
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
+        }
+        return fallback;
+    }
+
+    /** 读取一条服务器设置；不存在返回 null。 */
+    public synchronized String readSetting(String key) {
+        Cursor cursor = null;
+        try {
+            cursor = getReadableDatabase().query("server_settings", new String[]{"value"},
+                    "key=?", new String[]{key}, null, null, null);
+            if (cursor.moveToFirst() && !cursor.isNull(0)) {
+                return cursor.getString(0);
+            }
+        } catch (Exception ignored) {
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
+        }
+        return null;
+    }
+
+    /** 写入一条服务器设置（存在则覆盖）。 */
+    public synchronized void writeSetting(String key, String value) {
+        ContentValues values = new ContentValues();
+        values.put("key", key);
+        values.put("value", value);
+        getWritableDatabase().insertWithOnConflict("server_settings", null, values,
+                SQLiteDatabase.CONFLICT_REPLACE);
+    }
+
+    // ---------------------------------------------------------------- 用户数据（开包 / 经济）
+
+    /** 读一个用户文本字段；列不存在或为空返回 fallback。 */
+    public synchronized String getUserString(int userId, String column, String fallback) {
+        Cursor cursor = null;
+        try {
+            cursor = getReadableDatabase().query("users", new String[]{column},
+                    "id=?", new String[]{String.valueOf(userId)}, null, null, null);
+            if (cursor.moveToFirst() && !cursor.isNull(0)) {
+                String value = cursor.getString(0);
+                if (value != null) {
+                    return value;
+                }
+            }
+        } catch (Exception ignored) {
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
+        }
+        return fallback;
+    }
+
+    /** 批量写用户字段。 */
+    public synchronized void updateUserFields(int userId, ContentValues values) {
+        if (values == null || values.size() == 0) {
+            return;
+        }
+        getWritableDatabase().update("users", values, "id=?", new String[]{String.valueOf(userId)});
+    }
+
+    /** 原地增减一个整数型用户字段（货币），返回新值。 */
+    public synchronized long addUserLong(int userId, String column, long delta) {
+        long current = getUserLong(userId, column, 0L);
+        long next = current + delta;
+        if (next < 0) {
+            next = 0;
+        }
+        ContentValues values = new ContentValues();
+        values.put(column, next);
+        updateUserFields(userId, values);
+        return next;
     }
 
     public synchronized void updateEquipment(int userId, String slot, String faction, String itemId) {
@@ -333,6 +490,14 @@ public final class KardsDatabase extends SQLiteOpenHelper {
         user.playerTag = cursor.getInt(cursor.getColumnIndexOrThrow("player_tag"));
         user.playerJwt = cursor.getString(cursor.getColumnIndexOrThrow("player_jwt"));
         user.isOnline = cursor.getInt(cursor.getColumnIndexOrThrow("is_online")) != 0;
+        user.createdAt = readString(cursor, "created_at");
+        user.lastLoginAt = readString(cursor, "last_login_at");
+        user.lastLoginIp = readString(cursor, "last_login_ip");
+        user.lastLoginDevice = readString(cursor, "last_login_device");
+        user.gold = readLong(cursor, "gold", 0L);
+        user.diamonds = readLong(cursor, "diamonds", 0L);
+        user.dust = readLong(cursor, "dust", 0L);
+        user.banned = readLong(cursor, "banned", 0L) != 0;
         for (String column : EQUIPMENT_COLUMNS) {
             int index = cursor.getColumnIndex(column);
             if (index >= 0) {
@@ -342,8 +507,26 @@ public final class KardsDatabase extends SQLiteOpenHelper {
         return user;
     }
 
-    private DeckRecord readDeck(Cursor cursor) {
-        DeckRecord deck = new DeckRecord();
+    /** 读字符串列；列不存在或为空时返回空串（老存档缺列也不会崩）。 */
+    private static String readString(Cursor cursor, String column) {
+        int index = cursor.getColumnIndex(column);
+        if (index < 0 || cursor.isNull(index)) {
+            return "";
+        }
+        String value = cursor.getString(index);
+        return value == null ? "" : value;
+    }
+
+    /** 读整数列；列不存在或为空时返回默认值。 */
+    private static long readLong(Cursor cursor, String column, long fallback) {
+        int index = cursor.getColumnIndex(column);
+        if (index < 0 || cursor.isNull(index)) {
+            return fallback;
+        }
+        return cursor.getLong(index);
+    }
+
+    private DeckRecord readDeck(Cursor cursor) {        DeckRecord deck = new DeckRecord();
         deck.id = cursor.getInt(cursor.getColumnIndexOrThrow("id"));
         deck.userId = cursor.getInt(cursor.getColumnIndexOrThrow("user_id"));
         deck.name = cursor.getString(cursor.getColumnIndexOrThrow("name"));
