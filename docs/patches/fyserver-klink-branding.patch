@@ -1,0 +1,274 @@
+diff --git a/AdminUi/src/App.vue b/AdminUi/src/App.vue
+index 2a76dd7..e9aa338 100644
+--- a/AdminUi/src/App.vue
++++ b/AdminUi/src/App.vue
+@@ -19,22 +19,25 @@ const links = [
+   ['redeem', 'redeem', '兑换码', '运营'],
+   ['patch-paks', 'package', 'Patch Pak', '运营'],
+   ['server-config', 'settings', '服务器设置', '系统'],
++  ['match-config', 'matches', '对局配置', '系统'],
+   ['system-settings', 'cpu', '系统设置', '系统'],
+   ['player-cards', 'cards', '新玩家卡牌', '系统'],
+-  ['accounts', 'users', '后台用户', '系统'],
+-  ['profile', 'users', '个人主页', '系统'],
+ ];
+-const active = { 'user-detail': 'users', 'account-detail': 'accounts', 'account-actions': 'accounts', 'account-logins': 'accounts', 'server-config-edit': 'server-config', 'database-setup': 'system-settings' }[route] || route;
+-const title = ({ 'user-detail': '玩家详情', 'account-detail': '后台账号详情', 'account-actions': '历史操作', 'account-logins': '登录与 IP', 'server-config-edit': '编辑服务器配置', 'database-setup': '玩家数据库初始化' })[route] || links.find(x => x[0] === active)?.[2] || '基础信息';
++// KLink: 后台账号体系已随登录一起删除（本机免登录，只有"管理员"一个身份），
++// 因此「后台用户」「个人主页」及其详情页都不再出现在导航里。
++const active = { 'user-detail': 'users', 'server-config-edit': 'server-config', 'database-setup': 'system-settings' }[route] || route;
++const title = ({ 'user-detail': '玩家详情', 'server-config-edit': '编辑服务器配置', 'match-config': '对局配置', 'database-setup': '玩家数据库初始化' })[route] || links.find(x => x[0] === active)?.[2] || '基础信息';
+ const sidebarClosed = ref(matchMedia('(max-width:720px)').matches);
+ const username = ref('服务运行中');
+ const avatarUrl = ref('');
+ const permissions = ref([]);
+ const dark = ref(localStorage.getItem('fyserver.admin.dark') === '1');
++// PATCH(KLink): 本机免登录时不显示「退出登录」（点了会立刻又被免登录放行，形成死循环）
++const loopbackTrusted = ref(false);
+ const theme = ref(window.Admin.readTheme());
+-const brandTitle = computed(() => theme.value.title || 'FYServer');
+-const brandSubtitle = computed(() => theme.value.subtitle || 'SERVER CONTROL CENTER');
+-const linkPermissions = { users: 'players', cards: 'systemSettings', 'player-cards': 'systemSettings', matches: 'matches', 'match-management': 'matches', content: 'content', store: 'content', redeem: 'content', 'patch-paks': 'patchPaks', 'server-config': 'serverConfig', 'system-settings': 'systemSettings', accounts: 'permissions' };
++const brandTitle = computed(() => theme.value.title || 'KLink');
++const brandSubtitle = computed(() => theme.value.subtitle || 'KARDS LOCAL SERVER');
++const linkPermissions = { users: 'players', cards: 'systemSettings', 'player-cards': 'systemSettings', matches: 'matches', 'match-management': 'matches', content: 'content', store: 'content', redeem: 'content', 'patch-paks': 'patchPaks', 'server-config': 'serverConfig', 'system-settings': 'systemSettings', 'match-config': 'serverConfig' };
+ const visibleLinks = computed(() => links.filter(x => !linkPermissions[x[0]] || permissions.value.includes(linkPermissions[x[0]])));
+ let heartbeat;
+ let permissionNotified = false;
+@@ -53,6 +56,7 @@ async function session() {
+     username.value = s.username || '管理员';
+     avatarUrl.value = s.avatarUrl || '';
+     permissions.value = s.permissions || [];
++    loopbackTrusted.value = !!s.loopbackTrusted;
+     const required = linkPermissions[active];
+     if (required && !permissions.value.includes(required) && !permissionNotified && document.getElementById('banner-host')) {
+       permissionNotified = true;
+@@ -77,19 +81,19 @@ onUnmounted(() => clearInterval(heartbeat));
+   <div v-else class="admin-shell" :class="{ 'sidebar-collapsed': sidebarClosed }">
+     <button type="button" class="sidebar-scrim" aria-label="关闭侧边栏" @click="sidebarClosed = true"></button>
+     <aside class="admin-sidebar">
+-      <div class="admin-brand"><img src="/assets/fyserver-logo-transparent.png" alt="FYServer"><span class="brand-copy"><b>{{ brandTitle }}</b><small>{{ brandSubtitle }}</small></span></div>
++      <div class="admin-brand"><img src="/assets/klink-icon-256.png" alt="KLink"><span class="brand-copy"><b>{{ brandTitle }}</b><small>{{ brandSubtitle }}</small></span></div>
+       <nav aria-label="后台导航">
+         <template v-for="(link, i) in visibleLinks" :key="link[0]">
+           <span v-if="i === 0 || visibleLinks[i - 1][3] !== link[3]" class="side-group-label">{{ link[3] }}</span>
+           <a class="side-link" :class="{ 'is-active': active === link[0] }" :href="`/admin-ui/${link[0]}.html`" :title="link[2]" :aria-current="active === link[0] ? 'page' : undefined"><span class="side-icon"><AppIcon :name="link[1]" /></span><span class="side-label">{{ link[2] }}</span><i></i></a>
+         </template>
+       </nav>
+-      <div class="sidebar-actions"><button class="side-action" type="button" @click="toggleTheme"><span><AppIcon name="sun" /></span><span>切换主题</span></button><button class="side-action danger" type="button" @click="logout"><span><AppIcon name="logout" /></span><span>退出登录</span></button></div>
++      <div class="sidebar-actions"><button class="side-action" type="button" @click="toggleTheme"><span><AppIcon name="sun" /></span><span>切换主题</span></button><button v-if="!loopbackTrusted" class="side-action danger" type="button" @click="logout"><span><AppIcon name="logout" /></span><span>退出登录</span></button></div>
+     </aside>
+     <div class="admin-stage">
+-      <header class="admin-topbar"><button class="round-btn" type="button" aria-label="切换侧边栏" :aria-expanded="!sidebarClosed" @click="sidebarClosed = !sidebarClosed"><AppIcon name="menu" /></button><div class="breadcrumbs"><span>FYServer</span><b>/</b><strong>{{ title }}</strong></div><a class="top-status profile-shortcut" href="/admin-ui/profile.html" title="个人主页"><i></i><span>{{ username }}</span><img class="top-avatar" :src="avatarUrl || '/admin-ui/assets/admin-avatar-placeholder.svg'" alt="个人头像"></a></header>
++      <header class="admin-topbar"><button class="round-btn" type="button" aria-label="切换侧边栏" :aria-expanded="!sidebarClosed" @click="sidebarClosed = !sidebarClosed"><AppIcon name="menu" /></button><div class="breadcrumbs"><span>KLink</span><b>/</b><strong>{{ title }}</strong></div><span class="top-status"><i></i><span>{{ username }}</span><img class="top-avatar" :src="avatarUrl || '/admin-ui/assets/klink-icon-256.png'" alt="管理员头像"></span></header>
+       <Page />
+-      <footer class="page-footer">FYServer · Server Control Center</footer>
++      <footer class="page-footer">KLink · KARDS Local Server</footer>
+     </div>
+   </div>
+ </template>
+diff --git a/AdminUi/src/admin-v4.css b/AdminUi/src/admin-v4.css
+index 69796af..afc6453 100644
+--- a/AdminUi/src/admin-v4.css
++++ b/AdminUi/src/admin-v4.css
+@@ -80,3 +80,60 @@ table.md-table tbody tr:focus-within{background:rgba(var(--primary-rgb),.06)}
+ @media(max-width:480px){.auth-card{padding:28px 20px}.form-grid{grid-template-columns:1fr}.btn-row{gap:8px}}
+ @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+ .top-status.profile-shortcut{border-radius:999px;padding:3px 4px 3px 10px;transition:background .18s}.top-status.profile-shortcut:hover{background:rgba(var(--primary-rgb),.07)}.top-status.profile-shortcut .top-avatar,.account-avatar{width:36px;height:36px;border-radius:50%;object-fit:cover;background:var(--surface-custom);border:2px solid var(--outline);margin-left:3px}.account-avatar{width:38px;height:38px;vertical-align:middle;margin:0 9px 0 0}.profile-hero{display:flex;align-items:center;gap:18px}.profile-hero h2{margin:0 0 5px}.profile-hero p{margin:0}.profile-avatar-wrap{width:96px;height:96px;flex:none;overflow:hidden;border-radius:50%;border:3px solid color-mix(in srgb,var(--primary) 24%,white);box-shadow:0 8px 24px rgba(20,50,90,.12)}.profile-avatar-wrap img{width:100%;height:100%;display:block;object-fit:cover}.crop-layout{display:flex;align-items:center;gap:22px;margin-top:18px}.crop-frame{width:220px;height:220px;flex:none;overflow:hidden;border-radius:50%;border:4px solid color-mix(in srgb,var(--primary) 32%,white);box-shadow:0 10px 28px rgba(20,50,90,.14);background:#e8edf5}.crop-frame canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab}.crop-frame canvas:active{cursor:grabbing}.crop-controls{flex:1;min-width:150px}.profile-shortcut{text-decoration:none;color:inherit}.profile-shortcut:hover{opacity:.88}@media(max-width:760px){.crop-layout{flex-direction:column;align-items:flex-start}.crop-frame{width:190px;height:190px}}
++
++
++/* ============================================================
++   KLink 视觉节奏修正（PATCH）
++   ------------------------------------------------------------
++   背景：这份全局样式累计了 415 条规则，.card/.btn 各被定义 15 次，
++        后加的页面又叠了段落间距，结果整体偏紧凑、层级偏吵。
++   做法：不改上面任何一条规则 —— 全部放在文件末尾，靠层叠覆盖，
++        既不使用 !important，也不与既有规则互相打架；
++        要回退只需删掉这一段。
++   另外：页面级眉标（"SERVER ADMINISTRATION" 之类）隐藏 —— 侧边栏已经
++        标出了所在板块、H1 已经写了页面名，这是第三遍重复；
++        卡片内的眉标保留（它们用来区分同一页里的不同区块）。
++   ============================================================ */
++
++/* 侧边栏导航滚动：原规则只写在 @media(max-width:720px) 里，
++   桌面端窗口变矮时下面的菜单项会够不着。提到全局。 */
++.admin-sidebar nav { min-height: 0; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; padding-right: 3px; }
++/* 页面留白：顶部收紧、底部放松，左右不再贴边 */
++.page { padding: 30px 20px 56px; }
++.admin-stage { padding: 16px 24px 0; }
++
++/* 卡片：内边距与圆角放松一档 */
++.card { padding: 26px 28px; border-radius: 20px; }
++.card + .card,
++section.card + section.card { margin-top: 20px; }
++
++/* 页头：只留 H1 + 一句描述 */
++.page-head { margin: 0 0 24px; }
++.page-head .eyebrow,
++.page-head .dashboard-eyebrow { display: none; }
++/* 这一行 "SERVER ADMINISTRATION" 不是 DOM 节点，而是伪元素 content（所以查 DOM 查不到），
++   必须显式清掉 content 才消失。 */
++.page-head:before { content: none; }
++.page-head h1 { font-size: 30px; line-height: 1.24; margin: 0 0 8px; }
++.page-head p { margin: 0; font-size: 14px; line-height: 1.7; }
++
++/* 卡片内的区块标题与说明 */
++.card > h2 { font-size: 17px; margin: 0 0 8px; }
++.panel-head { margin-bottom: 16px; }
++.panel-head h2 { margin: 0; }
++.card p.muted,
++.card > p.muted { font-size: 13px; line-height: 1.75; }
++
++/* 表单：控件间距与标签可读性 */
++.field { gap: 7px; margin-bottom: 18px; }
++.field > span,
++.field > label { font-size: 12.5px; }
++.field small { font-size: 11.5px; line-height: 1.6; }
++
++/* 动作条与按钮：统一到一个尺寸档，不再逐页微调 */
++.btn { min-height: 40px; padding: 10px 18px; border-radius: 12px; }
++.btn-row,
++.search-row { gap: 12px; }
++
++/* 表格：行高放松、数字列对齐，但不改字号（13px 已经合适） */
++table.md-table td { padding: 13px 14px; }
+\ No newline at end of file
+diff --git a/AdminUi/src/admin-v4.js b/AdminUi/src/admin-v4.js
+index 7fa7690..8732d27 100644
+--- a/AdminUi/src/admin-v4.js
++++ b/AdminUi/src/admin-v4.js
+@@ -1,7 +1,10 @@
+ window.Admin=(function(){'use strict';
+-const KEY='fyserver.admin.theme.v2',defaults={title:'FYServer',subtitle:'SERVER CONTROL CENTER',primary:'#006fee',accent:'#7828c8',background:'#f7f9fc',surface:'#ffffff',font:'system',customFont:'',backgroundImage:'',dark:false};
++const KEY='fyserver.admin.theme.v2',defaults={title:'KLink',subtitle:'KARDS LOCAL SERVER',primary:'#006fee',accent:'#7828c8',background:'#f7f9fc',surface:'#ffffff',font:'system',customFont:'',backgroundImage:'',dark:false};
+ const fonts={system:'"Segoe UI","Microsoft YaHei UI",system-ui,sans-serif',cute:'"FY Cute","Microsoft YaHei UI",sans-serif',rounded:'"Arial Rounded MT Bold","Microsoft YaHei UI",sans-serif',mono:'"Cascadia Code",Consolas,monospace'};
+-function readTheme(){try{return Object.assign({},defaults,JSON.parse(localStorage.getItem(KEY)||'{}'))}catch(_){return Object.assign({},defaults)}}
++// KLink：品牌更名。浏览器里可能还缓存着改名前保存的旧品牌名，
++// 这里做一次映射，避免老用户看到「FYServer」（用户自定义的标题不受影响）。
++const BRAND_ALIAS={'FYServer':'KLink','FYSERVER':'KLink','SERVER CONTROL CENTER':'KARDS LOCAL SERVER'};
++function readTheme(){try{const t=Object.assign({},defaults,JSON.parse(localStorage.getItem(KEY)||'{}'));if(BRAND_ALIAS[t.title])t.title=BRAND_ALIAS[t.title];if(BRAND_ALIAS[t.subtitle])t.subtitle=BRAND_ALIAS[t.subtitle];return t}catch(_){return Object.assign({},defaults)}}
+ function rgb(h){h=String(h||'').replace('#','');return /^[0-9a-f]{6}$/i.test(h)?[0,2,4].map(i=>parseInt(h.slice(i,i+2),16)).join(','):'0,111,238'}
+ function applyTheme(value){const t=Object.assign({},defaults,value||readTheme()),r=document.documentElement;r.style.setProperty('--primary',t.primary);r.style.setProperty('--primary-rgb',rgb(t.primary));r.style.setProperty('--accent',t.accent);r.style.setProperty('--background',t.background);r.style.setProperty('--surface-custom',t.surface);r.style.setProperty('--app-font',t.customFont.trim()||fonts[t.font]||fonts.system);r.style.setProperty('--custom-background',t.backgroundImage?'url("'+t.backgroundImage.replace(/"/g,'%22')+'")':'none');document.body.classList.toggle('theme-dark',!!t.dark);document.querySelectorAll('[data-brand-title]').forEach(e=>e.textContent=t.title);document.querySelectorAll('[data-brand-subtitle]').forEach(e=>e.textContent=t.subtitle);return t}
+ function saveTheme(t){try{localStorage.setItem(KEY,JSON.stringify(t))}catch(_){banner('背景图片过大，浏览器无法保存。','err');return false}applyTheme(t);return true}applyTheme(defaults);
+@@ -21,8 +24,8 @@ const items=[
+   ['redeem','/admin-ui/redeem.html','redeem','兑换码','运营'],
+   ['patch-paks','/admin-ui/patch-paks.html','package','Patch Pak','运营'],
+   ['server-config','/admin-ui/server-config.html','settings','服务器设置','系统'],
++  ['match-config','/admin-ui/match-config.html','matches','对局配置','系统'],
+   ['system-settings','/admin-ui/system-settings.html','cpu','系统设置','系统'],
+-  ['accounts','/admin-ui/accounts.html','users','后台用户','系统'],
+ ];
+ function layout(active,title){
+   let previousGroup='';
+@@ -31,9 +34,9 @@ function layout(active,title){
+     previousGroup=group;
+     return heading+'<a class="side-link'+(key===active?' is-active':'')+'" href="'+href+'" title="'+label+'"'+(key===active?' aria-current="page"':'')+'><span class="side-icon" data-nav-icon="'+iconName+'">'+icon(iconName)+'</span><span class="side-label">'+label+'</span><i></i></a>';
+   }).join('');
+-  return '<div class="admin-shell"><button type="button" class="sidebar-scrim" id="sidebar-scrim" aria-label="关闭侧边栏"></button><aside class="admin-sidebar"><div class="admin-brand"><img src="/admin-ui/assets/fyserver-logo-transparent.png" alt="FYServer"><span class="brand-copy"><b data-brand-title>FYServer</b><small data-brand-subtitle>SERVER CONTROL CENTER</small></span></div><nav aria-label="后台导航">'+links+'</nav><div class="sidebar-actions"><button id="theme-toggle" class="side-action" type="button"><span>'+icon('sun')+'</span><span>切换主题</span></button><button id="logout" class="side-action danger" type="button"><span>'+icon('logout')+'</span><span>退出登录</span></button></div></aside><div class="admin-stage"><header class="admin-topbar"><button id="sidebar-toggle" class="round-btn" type="button" aria-label="切换侧边栏" aria-expanded="false">'+icon('menu')+'</button><div class="breadcrumbs"><span>FYServer</span><b>/</b><strong>'+esc(title)+'</strong></div><div class="top-status"><i></i><span id="whoami">服务运行中</span><img src="/admin-ui/assets/fyserver-logo-transparent.png" alt="Admin"></div></header></div></div>';
++  return '<div class="admin-shell"><button type="button" class="sidebar-scrim" id="sidebar-scrim" aria-label="关闭侧边栏"></button><aside class="admin-sidebar"><div class="admin-brand"><img src="/assets/klink-icon-256.png" alt="KLink"><span class="brand-copy"><b data-brand-title>KLink</b><small data-brand-subtitle>KARDS LOCAL SERVER</small></span></div><nav aria-label="后台导航">'+links+'</nav><div class="sidebar-actions"><button id="theme-toggle" class="side-action" type="button"><span>'+icon('sun')+'</span><span>切换主题</span></button><button id="logout" class="side-action danger" type="button"><span>'+icon('logout')+'</span><span>退出登录</span></button></div></aside><div class="admin-stage"><header class="admin-topbar"><button id="sidebar-toggle" class="round-btn" type="button" aria-label="切换侧边栏" aria-expanded="false">'+icon('menu')+'</button><div class="breadcrumbs"><span>KLink</span><b>/</b><strong>'+esc(title)+'</strong></div><div class="top-status"><i></i><span id="whoami">服务运行中</span><img src="/assets/klink-icon-256.png" alt="KLink"></div></header></div></div>';
+ }
+-function dialog(){return '<div class="theme-backdrop" id="theme-backdrop" hidden><section class="theme-dialog"><div class="theme-dialog__head"><div><span class="eyebrow">APPEARANCE</span><h2>主题自定义</h2></div><button type="button" class="round-btn" id="theme-close">'+icon('close')+'</button></div><form id="theme-form"><div class="theme-grid"><label class="field"><span>后台标题</span><input id="theme-title-input" maxlength="32"></label><label class="field"><span>英文副标题</span><input id="theme-subtitle-input" maxlength="48"></label><label class="field"><span>字体</span><select id="theme-font"><option value="system">系统默认</option><option value="cute">FY Cute</option><option value="rounded">圆体</option><option value="mono">等宽字体</option><option value="custom">自定义字体</option></select></label><label class="field"><span>自定义 CSS 字体名称</span><input id="theme-custom-font" placeholder="例如 MiSans, sans-serif"></label><label class="color-field"><span>主色</span><input id="theme-primary" type="color"></label><label class="color-field"><span>辅助色</span><input id="theme-accent" type="color"></label><label class="color-field"><span>背景色</span><input id="theme-background" type="color"></label><label class="color-field"><span>卡片色</span><input id="theme-surface" type="color"></label></div><label class="field"><span>背景图片 URL</span><input id="theme-background-url" placeholder="https://… 或留空"></label><label class="field"><span>上传本地背景（建议小于 2 MB）</span><input id="theme-background-file" type="file" accept="image/*"></label><div class="theme-preview"><img src="/admin-ui/assets/fyserver-logo-transparent.png" alt="FYServer"><div><b id="theme-preview-title">FYServer</b><small id="theme-preview-subtitle">SERVER CONTROL CENTER</small></div></div><div class="btn-row"><button class="btn" type="submit">保存主题</button><button class="btn btn--outline" type="button" id="theme-reset">恢复默认</button><button class="btn btn--outline" type="button" id="theme-remove-bg">移除背景</button></div></form></section></div>'}
++function dialog(){return '<div class="theme-backdrop" id="theme-backdrop" hidden><section class="theme-dialog"><div class="theme-dialog__head"><div><span class="eyebrow">APPEARANCE</span><h2>主题自定义</h2></div><button type="button" class="round-btn" id="theme-close">'+icon('close')+'</button></div><form id="theme-form"><div class="theme-grid"><label class="field"><span>后台标题</span><input id="theme-title-input" maxlength="32"></label><label class="field"><span>英文副标题</span><input id="theme-subtitle-input" maxlength="48"></label><label class="field"><span>字体</span><select id="theme-font"><option value="system">系统默认</option><option value="cute">FY Cute</option><option value="rounded">圆体</option><option value="mono">等宽字体</option><option value="custom">自定义字体</option></select></label><label class="field"><span>自定义 CSS 字体名称</span><input id="theme-custom-font" placeholder="例如 MiSans, sans-serif"></label><label class="color-field"><span>主色</span><input id="theme-primary" type="color"></label><label class="color-field"><span>辅助色</span><input id="theme-accent" type="color"></label><label class="color-field"><span>背景色</span><input id="theme-background" type="color"></label><label class="color-field"><span>卡片色</span><input id="theme-surface" type="color"></label></div><label class="field"><span>背景图片 URL</span><input id="theme-background-url" placeholder="https://… 或留空"></label><label class="field"><span>上传本地背景（建议小于 2 MB）</span><input id="theme-background-file" type="file" accept="image/*"></label><div class="theme-preview"><img src="/assets/klink-icon-256.png" alt="KLink"><div><b id="theme-preview-title">KLink</b><small id="theme-preview-subtitle">KARDS LOCAL SERVER</small></div></div><div class="btn-row"><button class="btn" type="submit">保存主题</button><button class="btn btn--outline" type="button" id="theme-reset">恢复默认</button><button class="btn btn--outline" type="button" id="theme-remove-bg">移除背景</button></div></form></section></div>'}
+ function openTheme(){const t=readTheme(),$=id=>document.getElementById(id);$('theme-title-input').value=t.title;$('theme-subtitle-input').value=t.subtitle;$('theme-font').value=t.customFont?'custom':t.font;$('theme-custom-font').value=t.customFont;$('theme-primary').value=t.primary;$('theme-accent').value=t.accent;$('theme-background').value=t.background;$('theme-surface').value=t.surface;$('theme-background-url').value=t.backgroundImage.startsWith('data:')?'':t.backgroundImage;$('theme-preview-title').textContent=t.title;$('theme-preview-subtitle').textContent=t.subtitle;$('theme-backdrop').hidden=false}
+ function wireTheme(){const $=id=>document.getElementById(id);$('theme-open').onclick=openTheme;$('theme-close').onclick=()=>$('theme-backdrop').hidden=true;$('theme-backdrop').onclick=e=>{if(e.target===$('theme-backdrop'))$('theme-backdrop').hidden=true};$('theme-title-input').oninput=e=>$('theme-preview-title').textContent=e.target.value||defaults.title;$('theme-subtitle-input').oninput=e=>$('theme-preview-subtitle').textContent=e.target.value||defaults.subtitle;$('theme-toggle').onclick=()=>{const t=readTheme();t.dark=!t.dark;saveTheme(t)};$('theme-remove-bg').onclick=()=>{const t=readTheme();t.backgroundImage='';saveTheme(t);$('theme-background-url').value='';$('theme-background-file').value=''};$('theme-reset').onclick=()=>{localStorage.removeItem(KEY);applyTheme(defaults);openTheme()};$('theme-form').onsubmit=async e=>{e.preventDefault();const old=readTheme(),file=$('theme-background-file').files[0];let bg=$('theme-background-url').value.trim()||old.backgroundImage;if(file)bg=await new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=no;r.readAsDataURL(file)});const choice=$('theme-font').value,next=Object.assign(old,{title:$('theme-title-input').value.trim()||defaults.title,subtitle:$('theme-subtitle-input').value.trim()||defaults.subtitle,primary:$('theme-primary').value,accent:$('theme-accent').value,background:$('theme-background').value,surface:$('theme-surface').value,font:choice==='custom'?'system':choice,customFont:choice==='custom'?$('theme-custom-font').value.trim():'',backgroundImage:bg});if(saveTheme(next)){$('theme-backdrop').hidden=true;banner('主题已保存到当前浏览器','ok')}}}
+ let heartbeatStarted=false;function startHeartbeat(){if(heartbeatStarted)return;heartbeatStarted=true;const ping=()=>{if(document.visibilityState==='visible')fetch('/admin/api/session',{cache:'no-store',credentials:'same-origin'}).catch(()=>{})};setInterval(ping,45000);document.addEventListener('visibilitychange',ping)}
+@@ -58,14 +61,16 @@ function mount(active,title){
+   return fetch('/admin/api/session',{cache:'no-store'}).then(r=>r.json()).then(s=>{
+     const w=document.getElementById('whoami');
+     if(w&&s)w.textContent=s.username||'管理员';
+-    const navPermissions={'accounts':'permissions','users':'players','matches':'matches','content':'content','store':'content','redeem':'content','patch-paks':'patchPaks','server-config':'serverConfig','system-settings':'systemSettings'};
++    const navPermissions={'accounts':'permissions','users':'players','matches':'matches','content':'content','store':'content','redeem':'content','patch-paks':'patchPaks','server-config':'serverConfig','system-settings':'systemSettings','match-config':'serverConfig'};
+     Object.entries(navPermissions).forEach(([key,permission])=>{if(!(s.permissions||[]).includes(permission)){const link=document.querySelector('.side-link[href="/admin-ui/'+key+'.html"]');if(link)link.remove()}});
+-    const required={users:'players',matches:'matches',content:'content',store:'content',redeem:'content','patch-paks':'patchPaks','server-config':'serverConfig','system-settings':'systemSettings',accounts:'permissions'}[active];
++    const required={users:'players',matches:'matches',content:'content',store:'content',redeem:'content','patch-paks':'patchPaks','server-config':'serverConfig','system-settings':'systemSettings',accounts:'permissions','match-config':'serverConfig'}[active];
+     if(required&&!(s.permissions||[]).includes(required)){
+       const h=document.getElementById('banner-host');
+       if(h)h.innerHTML='<div class="banner banner--info">当前账号对此页面只有查看权限，修改操作会被服务器拒绝。</div>';
+     }
+   }).catch(()=>{});
+ }
+-async function ensureAuth(){try{const s=await api('/session');if(s&&s.authorized){if(!s.serverReady&&location.pathname!='/admin-ui/database-setup.html'){location.href='/admin-ui/database-setup.html';return false}return true}}catch(_){return false}location.href='/admin-ui/login.html?next='+encodeURIComponent(location.pathname);return false}
++// PATCH(KLink): 本机（loopback）访问免登录 —— 服务器已把回环请求视为 Owner，
++// 这里不再跳登录页；只有真正的远程访问才要求登录。
++async function ensureAuth(){try{const s=await api('/session');if(s&&(s.authorized||s.loopback)){if(!s.serverReady&&location.pathname!='/admin-ui/database-setup.html'){location.href='/admin-ui/database-setup.html';return false}return true}}catch(_){return false}location.href='/admin-ui/login.html?next='+encodeURIComponent(location.pathname);return false}
+ return{esc,api,banner,mount,ensureAuth,applyTheme,readTheme,hydrateIcons};})();
+diff --git a/AdminUi/src/pages/database-setup.vue b/AdminUi/src/pages/database-setup.vue
+index e35c750..13c7c17 100644
+--- a/AdminUi/src/pages/database-setup.vue
++++ b/AdminUi/src/pages/database-setup.vue
+@@ -17,7 +17,7 @@
+       <div class="btn-row"><button class="btn" id="save" type="submit">测试连接并完成初始化</button><button class="btn btn--outline" id="reload" type="button">读取已保存配置</button></div>
+     </form>
+   </section>
+-  <section class="card"><h2>初始化说明</h2><p class="muted">目标数据库需要预先存在，所填账号需要在该数据库中创建表的权限。FYServer 会自动创建 <span class="mono">fy_users</span> 表，不会修改数据库中的其它表。切换存储不会自动迁移已有玩家数据。</p><p class="muted" id="state">正在读取状态…</p></section>
++  <section class="card"><h2>初始化说明</h2><p class="muted">目标数据库需要预先存在，所填账号需要在该数据库中创建表的权限。KLink 会自动创建 <span class="mono">fy_users</span> 表，不会修改数据库中的其它表。切换存储不会自动迁移已有玩家数据。</p><p class="muted" id="state">正在读取状态…</p></section>
+ </main>
+ </template>
+ <script setup>
+diff --git a/AdminUi/src/pages/index.vue b/AdminUi/src/pages/index.vue
+index 3b2245b..fa98ff3 100644
+--- a/AdminUi/src/pages/index.vue
++++ b/AdminUi/src/pages/index.vue
+@@ -1,7 +1,7 @@
+ <template>
+ 
+ <main class="page dashboard-page"><div id="banner-host"></div>
+-  <section class="dashboard-hero"><div><p class="dashboard-eyebrow">SERVER OVERVIEW</p><h1>晚上好，管理员</h1><p>欢迎回到 FYServer 控制台。一切运行平稳。</p></div><div class="online-box"><span></span><div><b>Online</b><small id="uptime">正在读取运行状态…</small></div></div></section>
++  <section class="dashboard-hero"><div><p class="dashboard-eyebrow">SERVER OVERVIEW</p><h1>晚上好，管理员</h1><p>欢迎回到 KLink 控制台。一切运行平稳。</p></div><div class="online-box"><span></span><div><b>Online</b><small id="uptime">正在读取运行状态…</small></div></div></section>
+   <section class="metric-grid">
+     <article class="metric-card"><i class="metric-icon blue"><span data-icon="users"></span></i><div><small>注册用户</small><strong id="user-count">—</strong><em id="user-hint">读取中</em></div></article>
+     <article class="metric-card"><i class="metric-icon purple"><span data-icon="online"></span></i><div><small>当前在线</small><strong id="online-count">—</strong><em>WebSocket 长连接</em></div></article>
+@@ -10,7 +10,7 @@
+   </section>
+   <section class="dashboard-main-grid">
+     <article class="card activity-card"><div class="panel-head"><div><p class="dashboard-eyebrow">REALTIME</p><h2>服务器活动</h2></div><button class="btn btn--outline btn--small" id="refresh">刷新数据</button></div><div class="chart-legend"><span class="online">在线玩家</span><span class="matches">活跃对局</span><span class="queued">等待匹配</span></div><div class="chart-wrap"><div class="chart-labels" id="chart-labels"><span>3</span><span>2</span><span>1</span><span>0</span></div><svg class="activity-chart" viewBox="0 0 700 240" preserveAspectRatio="none"><path class="chart-gridline" d="M0 30H700M0 90H700M0 150H700M0 210H700"/><path id="online-line" class="chart-line online-line"/><path id="matches-line" class="chart-line matches-line"/><path id="queued-line" class="chart-line queued-line"/></svg><div class="chart-times" id="chart-times"><span>等待数据</span><span>现在</span></div></div></article>
+-    <article class="card status-card"><div class="panel-head"><div><p class="dashboard-eyebrow">SYSTEM</p><h2>服务状态</h2></div></div><div class="status-logo"><img src="/assets/fyserver-logo-transparent.png" alt="FYServer"><span><b>FYServer</b><small id="runtime">.NET Runtime</small></span></div><dl class="compact-kv" id="runinfo"></dl></article>
++    <article class="card status-card"><div class="panel-head"><div><p class="dashboard-eyebrow">SYSTEM</p><h2>服务状态</h2></div></div><div class="status-logo"><img src="/assets/klink-icon-256.png" alt="KLink"><span><b>KLink</b><small id="runtime">Android Runtime</small></span></div><dl class="compact-kv" id="runinfo"></dl></article>
+   </section>
+   <section class="performance-grid">
+     <article class="performance-card"><div class="performance-head"><i class="perf-icon cpu"><span data-icon="cpu"></span></i><span><small>整机 CPU 使用率</small><strong id="cpu-percent">—%</strong></span></div><div class="progress"><i id="cpu-bar"></i></div><p>所有进程合计 · 首次采样需等待</p></article>
+@@ -18,8 +18,8 @@
+     <article class="performance-card"><div class="performance-head"><i class="perf-icon disk"><span data-icon="disk"></span></i><span><small>所在磁盘总占用</small><strong id="disk-percent">—%</strong></span></div><div class="progress"><i id="disk-bar"></i></div><p id="disk-value">— / —</p></article>
+   </section>
+   <section class="performance-grid">
+-    <article class="performance-card"><div class="performance-head"><i class="perf-icon cpu"><span data-icon="cpu"></span></i><span><small>FYServer CPU</small><strong id="process-cpu">—</strong></span></div><p>仅 FYServer 进程占整机 CPU 的比例</p></article>
+-    <article class="performance-card"><div class="performance-head"><i class="perf-icon memory"><span data-icon="memory"></span></i><span><small>FYServer 内存</small><strong id="process-memory">—</strong></span></div><p id="process-memory-value">—</p></article>
++    <article class="performance-card"><div class="performance-head"><i class="perf-icon cpu"><span data-icon="cpu"></span></i><span><small>KLink CPU</small><strong id="process-cpu">—</strong></span></div><p>仅 KLink 进程占整机 CPU 的比例</p></article>
++    <article class="performance-card"><div class="performance-head"><i class="perf-icon memory"><span data-icon="memory"></span></i><span><small>KLink 内存</small><strong id="process-memory">—</strong></span></div><p id="process-memory-value">—</p></article>
+     <article class="performance-card"><div class="performance-head"><i class="perf-icon disk"><span data-icon="disk"></span></i><span><small>数据库文件占用</small><strong id="database-percent">—</strong></span></div><p id="database-value">—</p></article>
+   </section>
+   <section class="dashboard-lower-grid">
+diff --git a/AdminUi/src/pages/login.vue b/AdminUi/src/pages/login.vue
+index 3990411..757b119 100644
+--- a/AdminUi/src/pages/login.vue
++++ b/AdminUi/src/pages/login.vue
+@@ -1,14 +1,14 @@
+ <template>
+ <button type="button" class="auth-theme" id="auth-theme" aria-label="切换主题"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42"/></svg></button>
+ <main class="auth-wrap"><section class="auth-card">
+-<header class="auth-head"><div class="auth-title"><img src="/assets/fyserver-logo-transparent.png" alt="FYServer"><div><span>Admin</span> <strong id="title-mode">Login</strong></div></div><p id="subtitle">登录 FYServer 服务器控制中心</p></header>
++<header class="auth-head"><div class="auth-title"><img src="/assets/klink-icon-256.png" alt="KLink"><div><span>Admin</span> <strong id="title-mode">Login</strong></div></div><p id="subtitle">登录 KLink 服务器控制中心</p></header>
+ <div id="banner-host"></div>
+ <form id="auth-form" class="auth-form" autocomplete="on">
+ <label class="auth-field"><span>管理员用户名</span><div><i><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4.8 20c.7-4 3.1-6 7.2-6s6.5 2 7.2 6"/></svg></i><input id="username" name="username" autocomplete="username" placeholder="请输入管理员用户名" required maxlength="32"></div></label>
+ <label class="auth-field"><span>密码</span><div><i><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="3"/><path d="M8.5 10V7.5a3.5 3.5 0 0 1 7 0V10M12 14v3"/></svg></i><input id="password" name="password" type="password" autocomplete="current-password" placeholder="请输入密码" required minlength="10"><button type="button" id="reveal" aria-label="显示密码"><svg class="eye-open" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.6"/></svg><svg class="eye-closed" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18M10.6 6.1A10.7 10.7 0 0 1 12 6c6 0 9.5 6 9.5 6a17 17 0 0 1-2.3 3M6.2 6.3C3.8 8 2.5 12 2.5 12s3.5 6 9.5 6a9.8 9.8 0 0 0 3.2-.5M9.9 9.8a3 3 0 0 0 4.3 4.3"/></svg></button></div></label>
+ <label class="auth-field" id="confirm-field" hidden style="display:none"><span>确认密码</span><div><i><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="3"/><path d="M8.5 10V7.5a3.5 3.5 0 0 1 7 0V10M12 14v3"/></svg></i><input id="confirm" name="confirm" type="password" autocomplete="new-password" placeholder="请再次输入密码" minlength="10" disabled></div></label>
+ <p class="auth-tip" id="hint">正在检查服务器状态…</p>
+-<button class="auth-submit" id="submit" type="submit"><img src="/assets/fyserver-logo-transparent.png" alt=""><span>登录</span></button>
++<button class="auth-submit" id="submit" type="submit"><img src="/assets/klink-icon-256.png" alt=""><span>登录</span></button>
+ </form></section></main>
+ </template>
+ <script setup>
+diff --git a/AdminUi/src/pages/server-config-edit.vue b/AdminUi/src/pages/server-config-edit.vue
+index c05af54..4e287bc 100644
+--- a/AdminUi/src/pages/server-config-edit.vue
++++ b/AdminUi/src/pages/server-config-edit.vue
+@@ -11,7 +11,7 @@
+       <label class="field"><span>注释（可修改；自定义配置项也可填写）</span><textarea id="description-input" name="description" maxlength="2000" placeholder="说明该配置项的用途"></textarea></label>
+       <div class="btn-row"><button class="btn" type="submit">保存配置</button><a class="btn btn--outline" href="/admin-ui/server-config.html">取消并返回</a></div>
+     </form>
+-    <aside class="config-edit-help"><h3>镜像参考</h3><p id="description">镜像已有配置项的原始说明会显示在这里，供编辑时参考。</p><p id="send-to-client"></p><p class="mirror-default" id="reference"></p><p class="muted">自定义注释保存在 config/serverOptions.comments.json；更新镜像参考数据不会覆盖它。键名只允许英文字母、数字和下划线。websocketurl 由 FYServer 自动生成，只允许编辑注释。</p></aside>
++    <aside class="config-edit-help"><h3>镜像参考</h3><p id="description">镜像已有配置项的原始说明会显示在这里，供编辑时参考。</p><p id="send-to-client"></p><p class="mirror-default" id="reference"></p><p class="muted">自定义注释保存在 config/serverOptions.comments.json；更新镜像参考数据不会覆盖它。键名只允许英文字母、数字和下划线。websocketurl 由 KLink 自动生成，只允许编辑注释。</p></aside>
+   </section>
+ </main>
+ </template>
