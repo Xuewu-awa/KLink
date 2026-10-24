@@ -1686,3 +1686,34 @@ body.immersive #theme-bg-video {
 }
 .modal-title { margin: 0 0 12px; font-size: 15px; }
 .modal-actions { margin-top: 12px; justify-content: flex-end; }
+
+/* ===== 数据文件导入 ===== */
+.modal-wide { width: min(560px, 94vw); }
+
+.import-file {
+    font-size: var(--fs-caption, 12px);
+    color: var(--text-secondary, #c3c7d1);
+    background: rgba(0, 0, 0, .25);
+    border: 1px solid var(--border, rgba(255, 255, 255, .08));
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin-bottom: var(--space-sm, 8px);
+    word-break: break-all;
+}
+
+.import-report {
+    font-size: var(--fs-caption, 12px);
+    line-height: 1.7;
+    color: var(--text-secondary, #c3c7d1);
+    background: rgba(0, 0, 0, .25);
+    border: 1px solid var(--border, rgba(255, 255, 255, .08));
+    border-radius: 8px;
+    padding: 10px 12px;
+    max-height: 40vh;
+    overflow: auto;
+}
+.import-report .import-line { white-space: pre-wrap; }
+.import-report .import-warn { color: #eab308; }
+.import-report .import-err { color: #ef4444; }
+.import-report .import-ok { color: #10b981; }
+

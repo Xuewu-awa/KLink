@@ -633,6 +633,127 @@ public class KLinkBridge {
         }
     }
 
+    // ==================== 数据文件导入 ====================
+
+    /**
+     * 让用户挑一份数据文件（library.json / deck_code_ids.json / 卡牌目录 …）导入。
+     *
+     * <p>Android 10+ 的文件选择器给的是 {@code content://} URI，服务器（同进程的
+     * 原生 HTTP 服务）读不了，所以这里把文件复制到缓存临时目录，只把**路径**交给前端。
+     * 顺便避开另一个坑：1.3MB 的卡牌目录如果作为字符串塞进 {@code evaluateJavascript}，
+     * 会顶到 Binder 传输上限。</p>
+     */
+    @JavascriptInterface
+    public void pickDataFile() {
+        activity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                if (activity instanceof MainActivity) {
+                    ((MainActivity) activity).pickDataFile();
+                }
+            }
+        });
+    }
+
+    /**
+     * 选好文件后的回调 —— 复制到 {@link DataImportService#spoolDir} 并通知前端。
+     *
+     * <p>每次选择前先清空临时目录：目录里只会有刚刚挑中的那一份文件，
+     * 服务端也只允许读这个目录，避免变成"任意路径读取"。</p>
+     */
+    public void onDataFilePicked(final Uri uri) {
+        try {
+            java.io.File dir = com.android1939.kardsserver.DataImportService
+                    .spoolDir(activity.getApplicationContext());
+            deleteChildren(dir);
+            if (!dir.exists() && !dir.mkdirs()) {
+                throw new Exception("无法创建临时目录");
+            }
+            String name = displayNameOf(uri);
+            java.io.File target = new java.io.File(dir, name);
+            java.io.InputStream in = activity.getContentResolver().openInputStream(uri);
+            if (in == null) {
+                emitError("无法读取文件");
+                return;
+            }
+            java.io.FileOutputStream out = new java.io.FileOutputStream(target);
+            try {
+                byte[] buf = new byte[65536];
+                int n;
+                while ((n = in.read(buf)) != -1) {
+                    out.write(buf, 0, n);
+                }
+            } finally {
+                out.close();
+                in.close();
+            }
+
+            JSONObject payload = new JSONObject();
+            payload.put("name", name);
+            payload.put("path", target.getAbsolutePath());
+            payload.put("bytes", target.length());
+            evalJs("if(window.onDataFilePicked) window.onDataFilePicked(" + payload + ");");
+        } catch (Exception e) {
+            emitError("读取文件失败: " + e.getMessage());
+        }
+    }
+
+    /** 取选择器里显示的文件名（content URI 的 lastPathSegment 往往是串数字）。 */
+    private String displayNameOf(Uri uri) {
+        String name = null;
+        android.database.Cursor cursor = null;
+        try {
+            cursor = activity.getContentResolver().query(uri, null, null, null, null);
+            if (cursor != null && cursor.moveToFirst()) {
+                int index = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME);
+                if (index >= 0) {
+                    name = cursor.getString(index);
+                }
+            }
+        } catch (Exception ignored) {
+        } finally {
+            if (cursor != null) {
+                try {
+                    cursor.close();
+                } catch (Exception ignored) {
+                }
+            }
+        }
+        if (name == null || name.trim().length() == 0) {
+            name = uri.getLastPathSegment();
+        }
+        return sanitizeFileName(name);
+    }
+
+    /** 文件名只保留安全字符，并保证以 .json 结尾（识别导入目标要靠它）。 */
+    private static String sanitizeFileName(String raw) {
+        String name = raw == null ? "" : raw.trim();
+        int slash = Math.max(name.lastIndexOf('/'), name.lastIndexOf('\\'));
+        if (slash >= 0) {
+            name = name.substring(slash + 1);
+        }
+        name = name.replaceAll("[^A-Za-z0-9._\\-\\u4e00-\\u9fff]", "_");
+        if (name.length() == 0 || ".".equals(name) || "..".equals(name)) {
+            name = "import.json";
+        }
+        if (!name.toLowerCase(java.util.Locale.US).endsWith(".json")) {
+            name = name + ".json";
+        }
+        return name;
+    }
+
+    private static void deleteChildren(java.io.File dir) {
+        java.io.File[] children = dir.listFiles();
+        if (children == null) {
+            return;
+        }
+        for (java.io.File child : children) {
+            if (!child.delete()) {
+                child.deleteOnExit();
+            }
+        }
+    }
+
     // ==================== 实用方法 ====================
 
     @JavascriptInterface

@@ -103,6 +103,18 @@ public final class CardCatalog {
         loadClientCardIds();
     }
 
+    /**
+     * 丢弃已加载的目录，下次访问重新读磁盘副本（导入新卡牌目录后调用）。
+     *
+     * <p>三份缓存都要清：目录本体、码表反查、以及下发客户端的卡牌库字符串
+     * （后者有 2000 多条，一旦缓存住不重建，玩家永远看不到新卡）。</p>
+     */
+    public synchronized void reload() {
+        cards = null;
+        clientLibraryJson = null;
+        clientCardIds.clear();
+    }
+
     private String readCatalogJson() throws Exception {
         // 磁盘副本优先（允许用户覆盖卡池）
         java.io.File disk = new java.io.File(assets.dataDir(), DISK_NAME);

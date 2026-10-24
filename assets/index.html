@@ -186,12 +186,14 @@
 
                 <div class="card card-compact">
                     <div class="btn-row">
+                        <button class="btn btn-accent" id="btnImportData">导入数据文件</button>
                         <button class="btn btn-ghost" id="btnReloadCards">重新加载/预览</button>
                         <button class="btn btn-ghost" id="btnCheckConsistency">检查一致性</button>
                         <button class="btn btn-danger" id="btnSaveCards">保存全部修改</button>
                     </div>
                     <p style="font-size:var(--fs-caption);color:var(--text-tertiary);margin-top:6px;">
                         修改先预览在内存中，点击「保存全部修改」才写入磁盘（自动备份 .bak，改坏了可恢复）。保存后立即生效，无需重启服务器。
+                        「导入数据文件」可以直接吃整份 library.json / deck_code_ids.json，不用再一条一条录。
                     </p>
                 </div>
 
@@ -489,6 +491,42 @@
             <div class="btn-row modal-actions">
                 <button class="btn btn-accent" id="mDeckOk">确认</button>
                 <button class="btn btn-ghost" id="mDeckCancel">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== 数据文件导入弹窗 ========== -->
+    <div class="modal-mask" id="modalImport" style="display:none;">
+        <div class="modal modal-wide">
+            <h3 class="modal-title">导入数据文件</h3>
+
+            <div class="import-file" id="importFileInfo">未选择文件</div>
+
+            <div class="form-row">
+                <label class="form-label">导入目标</label>
+                <select class="input" id="importTarget">
+                    <option value="auto">自动识别</option>
+                    <option value="library">卡牌库 library.json</option>
+                    <option value="decks">卡组代码 deck_code_ids.json</option>
+                    <option value="catalog">卡牌目录 cards-from-fmodel.json</option>
+                    <option value="store">商店配置 store.json</option>
+                    <option value="items">物品 items.json</option>
+                </select>
+            </div>
+
+            <div class="form-row">
+                <label class="form-label">导入方式</label>
+                <select class="input" id="importMode">
+                    <option value="merge">合并（保留文件里没有的现有条目）</option>
+                    <option value="replace">替换（现有条目全部丢弃）</option>
+                </select>
+            </div>
+
+            <div class="import-report" id="importReport">正在生成预览…</div>
+
+            <div class="btn-row modal-actions">
+                <button class="btn btn-accent" id="mImportOk" disabled>应用导入</button>
+                <button class="btn btn-ghost" id="mImportCancel">取消</button>
             </div>
         </div>
     </div>

@@ -159,9 +159,25 @@
         $('#mCardCancel').addEventListener('click', function() { closeModal('modalCard'); });
         $('#mDeckOk').addEventListener('click', submitDeck);
         $('#mDeckCancel').addEventListener('click', function() { closeModal('modalDeck'); });
+
+        // 数据文件导入
+        $('#btnImportData').addEventListener('click', startImport);
+        $('#importTarget').addEventListener('change', function() {
+            importState.target = this.value;
+            refreshImportPreview();
+        });
+        $('#importMode').addEventListener('change', function() {
+            importState.mode = this.value;
+            refreshImportPreview();
+        });
+        $('#mImportOk').addEventListener('click', applyImport);
+        $('#mImportCancel').addEventListener('click', cancelImport);
+
         $$('.modal-mask').forEach(function(mask) {
             mask.addEventListener('click', function(e) {
-                if (e.target === mask) mask.style.display = 'none';
+                if (e.target !== mask) return;
+                if (mask.id === 'modalImport') { cancelImport(); return; }
+                mask.style.display = 'none';
             });
         });
 
@@ -687,6 +703,183 @@
                 log('已保存全部修改，服务器缓存已刷新，无需重启', 'success');
             })
             .catch(function(e) { showToast('保存失败: ' + e.message); });
+    }
+
+    // ==================== 数据文件导入 ====================
+    // 一条一条录太费劲：选一份整 JSON 文件，先出报告（改了会怎样），确认后落盘。
+    // 文件由原生侧复制到缓存临时目录，这里只拿路径 —— 大文件不用穿 JS 桥。
+    var importState = {
+        path: '',
+        name: '',
+        target: 'auto',
+        mode: 'merge',
+        report: null,
+        running: false
+    };
+
+    function startImport() {
+        if (!window.KLink || typeof window.KLink.pickDataFile !== 'function') {
+            showToast('当前环境不支持选择文件');
+            return;
+        }
+        window.KLink.pickDataFile();
+    }
+
+    // 原生选好文件后回调
+    window.onDataFilePicked = function(info) {
+        if (!info || !info.path) return;
+        importState.path = info.path;
+        importState.name = info.name || '（未命名）';
+        importState.target = 'auto';
+        importState.mode = 'merge';
+        importState.report = null;
+        $('#importFileInfo').textContent =
+            importState.name + '（' + formatBytes(info.bytes || 0) + '）';
+        $('#importTarget').value = 'auto';
+        $('#importMode').value = 'merge';
+        $('#importReport').innerHTML = '<div class="import-line">正在生成预览…</div>';
+        setImportBusy(true);
+        $('#modalImport').style.display = 'flex';
+        refreshImportPreview();
+    };
+
+    function formatBytes(bytes) {
+        if (!bytes) return '0 B';
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / 1024 / 1024).toFixed(2) + ' MB';
+    }
+
+    function setImportBusy(busy) {
+        importState.running = busy;
+        const okBtn = $('#mImportOk');
+        okBtn.disabled = busy || !importState.report;
+        okBtn.textContent = busy ? '处理中…' : '应用导入';
+    }
+
+    function refreshImportPreview() {
+        if (!importState.path) return;
+        setImportBusy(true);
+        apiFetch('/admin/import', {
+            method: 'POST',
+            body: JSON.stringify({
+                path: importState.path,
+                target: importState.target,
+                mode: importState.mode,
+                apply: false
+            })
+        })
+            .then(function(report) {
+                importState.report = report;
+                // 自动识别出结果后，把下拉框同步成实际目标，避免"看到的和要应用的不一致"
+                if (report.target) {
+                    importState.target = report.target;
+                    $('#importTarget').value = report.target;
+                }
+                if (report.mode) {
+                    importState.mode = report.mode;
+                    $('#importMode').value = report.mode;
+                }
+                renderImportReport(report);
+                setImportBusy(false);
+            })
+            .catch(function(e) {
+                importState.report = null;
+                setImportBusy(false);
+                $('#importReport').innerHTML =
+                    '<div class="import-line import-err">预览失败：' + esc(e.message) + '</div>';
+            });
+    }
+
+    function renderImportReport(report) {
+        const s = report.summary || {};
+        const rows = [];
+        const src = report.source || {};
+        rows.push({text: '文件：' + (src.name || importState.name) + '（' + formatBytes(src.bytes || 0) + '）'});
+        rows.push({text: '目标：' + (report.target_label || report.target || '未知')});
+        rows.push({text: '方式：' + (report.mode === 'replace'
+            ? '替换（现有条目全部丢弃）'
+            : '合并（保留文件里没有的现有条目）')});
+
+        const before = typeof s.before === 'number' ? s.before : null;
+        const after = typeof s.after === 'number' ? s.after : null;
+        rows.push({text: '记录：' + (before === null ? '?' : before) + ' 条 → '
+            + (after === null ? '?' : after) + ' 条（文件里 ' + (s.total || 0) + ' 条）'});
+
+        const changes = [];
+        if (s.added) changes.push('新增 ' + s.added);
+        if (s.updated) changes.push('更新 ' + s.updated);
+        if (s.unchanged) changes.push('未变 ' + s.unchanged);
+        if (s.removed) changes.push('删除 ' + s.removed);
+        if (s.id_replaced) changes.push('同 id 顶替 ' + s.id_replaced);
+        rows.push({text: '变化：' + (changes.length ? changes.join(' / ') : '无变化'),
+                   cls: changes.length ? '' : 'import-ok'});
+
+        if (s.id_backfilled) {
+            rows.push({text: 'id 自动回填：' + s.id_backfilled + ' 条（按 deck_code_ids.json 反查）'});
+        }
+        if (s.id_unresolved) {
+            rows.push({text: 'id 无法回填：' + s.id_unresolved + ' 条（会置 0）', cls: 'import-warn'});
+        }
+        if (s.skipped) {
+            rows.push({text: '跳过：' + s.skipped + ' 条', cls: 'import-warn'});
+        }
+
+        const warnings = report.warnings || [];
+        warnings.forEach(function(w) { rows.push({text: '⚠ ' + w, cls: 'import-warn'}); });
+
+        const samples = report.samples || {};
+        const skippedSamples = (samples.skipped || []).slice(0, 3);
+        if (skippedSamples.length) {
+            rows.push({text: '  例：' + skippedSamples.join('；'), cls: 'import-warn'});
+        }
+
+        $('#importReport').innerHTML = rows.map(function(r) {
+            return '<div class="import-line' + (r.cls ? ' ' + r.cls : '') + '">' + esc(r.text) + '</div>';
+        }).join('');
+    }
+
+    function applyImport() {
+        if (!importState.path || !importState.report) return;
+        setImportBusy(true);
+        apiFetch('/admin/import', {
+            method: 'POST',
+            body: JSON.stringify({
+                path: importState.path,
+                target: importState.target,
+                mode: importState.mode,
+                apply: true
+            })
+        })
+            .then(function(res) {
+                setImportBusy(false);
+                $('#modalImport').style.display = 'none';
+                const s = res.summary || {};
+                const label = res.target_label || res.target || '';
+                showToast('导入完成：' + label);
+                log('导入 ' + label + '：新增 ' + (s.added || 0) + '，更新 ' + (s.updated || 0)
+                    + '，未变 ' + (s.unchanged || 0) + '，删除 ' + (s.removed || 0)
+                    + '，共 ' + (s.after === undefined ? '?' : s.after) + ' 条；已备份并立即生效', 'success');
+                const backups = res.backups || {};
+                Object.keys(backups).forEach(function(k) {
+                    log('备份 ' + k + '：' + backups[k], 'success');
+                });
+                importState.path = '';
+                importState.report = null;
+                loadCardData();
+                loadDeckData();
+            })
+            .catch(function(e) {
+                setImportBusy(false);
+                $('#importReport').innerHTML =
+                    '<div class="import-line import-err">导入失败：' + esc(e.message) + '</div>';
+            });
+    }
+
+    function cancelImport() {
+        $('#modalImport').style.display = 'none';
+        importState.path = '';
+        importState.report = null;
     }
 
     // ==================== 版本补丁 pak ====================

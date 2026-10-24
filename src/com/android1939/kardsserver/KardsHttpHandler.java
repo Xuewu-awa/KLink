@@ -38,6 +38,7 @@ public final class KardsHttpHandler implements SimpleHttpServer.Handler {
     private final CardCatalog cardCatalog;
     private final PlayerCards playerCards;
     private final StoreService store;
+    private final DataImportService dataImport;
     private final ActionCipher actionCipher = new ActionCipher();
     private final Random random = new Random();
     private final Set<String> excluded = new HashSet<String>();
@@ -62,6 +63,8 @@ public final class KardsHttpHandler implements SimpleHttpServer.Handler {
         this.optionsStore = new ServerOptionsStore(database, serverOptionsTemplate());
         this.adminApi = new AdminApiHandler(config, database, matches, webSockets, cardIds,
                 optionsStore, cardCatalog, store);
+        // 数据文件导入（整份 library.json / deck_code_ids.json / 卡牌目录 / 商店 / 物品）
+        this.dataImport = new DataImportService(context, assets, cardIds, cardCatalog, store);
         excluded.add("/");
         excluded.add("/session");
         excluded.add("/.com/config");
@@ -482,6 +485,12 @@ public final class KardsHttpHandler implements SimpleHttpServer.Handler {
         if ("POST".equals(method) && "/admin/save".equals(path)) {
             requireAdmin(request, null);
             return HttpResponse.json(200, cardIds.saveAll());
+        }
+        // 整份数据文件导入：apply=false 只出报告，true 才落盘（都先备份）
+        if ("POST".equals(method) && "/admin/import".equals(path)) {
+            JSONObject body = request.jsonBody();
+            requireAdmin(request, body);
+            return HttpResponse.json(200, dataImport.run(body));
         }
         if ("GET".equals(method) && "/admin/pak/status".equals(path)) {
             requireAdmin(request, null);

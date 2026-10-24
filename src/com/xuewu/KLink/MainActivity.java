@@ -116,6 +116,7 @@ public class MainActivity extends Activity {
     private static final int THEME_SAVE_CODE = 102;
     private static final int BG_IMAGE_SELECT_CODE = 103;
     private static final int BG_VIDEO_SELECT_CODE = 104;
+    private static final int DATA_FILE_SELECT_CODE = 105;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -608,6 +609,19 @@ public class MainActivity extends Activity {
         startActivityForResult(intent, BG_VIDEO_SELECT_CODE);
     }
 
+    /**
+     * 打开文件选择器，用于导入数据文件（library.json 等整份 JSON）。
+     *
+     * <p>用通配的 MIME 类型而不是限定 json：不少文件管理器把 .json 报成
+     * application/octet-stream，限定类型会导致文件根本选不中。</p>
+     */
+    public void pickDataFile() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("*/*");
+        startActivityForResult(intent, DATA_FILE_SELECT_CODE);
+    }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -631,6 +645,9 @@ public class MainActivity extends Activity {
                 break;
             case BG_VIDEO_SELECT_CODE:
                 bridge.onBgVideoPicked(uri);
+                break;
+            case DATA_FILE_SELECT_CODE:
+                bridge.onDataFilePicked(uri);
                 break;
         }
     }
