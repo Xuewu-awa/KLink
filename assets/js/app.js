@@ -886,25 +886,48 @@
     function loadPakStatus() {
         apiFetch('/admin/pak/status')
             .then(function(data) {
-                const lines = [];
+                const rows = [];
+                const push = function(text, cls) {
+                    rows.push('<div' + (cls ? ' class="' + cls + '"' : '') + '>' + esc(text) + '</div>');
+                };
+
                 if (data.template_exists) {
-                    lines.push('模板: 存在');
-                    lines.push('模板版本: ' + (data.template_version || '(未找到 ProjectVersion=)'));
-                    lines.push('容量: ' + data.capacity + ' 字符');
-                    lines.push('已保存版本: ' + (data.saved_version || '（无，默认使用服务端默认版本）'));
-                    lines.push('默认版本: ' + (data.default_version || ''));
-                    lines.push('输出: ' + (data.output_path || ''));
+                    push('模板: 存在');
+                    push('模板版本: ' + (data.template_version || '(未找到 ProjectVersion=)'));
+                    push('容量: ' + data.capacity + ' 字符');
+                    push('已保存版本: ' + (data.saved_version || '（无，默认使用服务端默认版本）'));
+                    push('默认版本: ' + (data.default_version || ''));
                     if (data.saved_version) {
                         $('#inputPakVersion').value = data.saved_version;
                     } else if (data.default_version) {
                         $('#inputPakVersion').value = data.default_version;
                     }
                 } else {
-                    lines.push('模板: 不存在');
-                    lines.push('提示: ' + (data.error || ''));
-                    lines.push('请将 version.pak 放入 ' + (data.template_path || 'data 目录'));
+                    push('模板: 不存在');
+                    push('提示: ' + (data.error || ''), 'pak-err');
+                    push('请将 version.pak 放入 ' + (data.template_path || 'data 目录'));
                 }
-                $('#pakStatus').innerHTML = lines.map(function(l) { return '<div>' + esc(l) + '</div>'; }).join('');
+
+                // 游戏里真正生效的那个版本号 —— 客户端就是拿它去比对白名单的
+                const installed = String(data.output_version || '').replace(/\s+$/, '');
+                if (data.output_exists) {
+                    push('游戏内 pak 版本: ' + (installed || '(未找到 ProjectVersion=)'));
+                } else {
+                    push('游戏内 pak: 尚未生成（进游戏前会自动写入）');
+                }
+                push('输出: ' + (data.output_path || ''));
+
+                // 白名单里有没有它 —— 没有就必然被版本检测挡住
+                const versions = data.versions || [];
+                if (versions.indexOf(installed) >= 0) {
+                    push('版本白名单: 含该版本（共 ' + versions.length + ' 项）', 'pak-ok');
+                } else if (data.output_exists) {
+                    push('版本白名单: 不含「' + installed + '」→ 进游戏会报版本错误', 'pak-err');
+                } else {
+                    push('版本白名单: 共 ' + versions.length + ' 项（pak 生成后自动包含）');
+                }
+
+                $('#pakStatus').innerHTML = rows.join('');
             })
             .catch(function(e) {
                 $('#pakStatus').innerHTML = '<div>加载失败: ' + esc(e.message) + '（服务器未启动？）</div>';

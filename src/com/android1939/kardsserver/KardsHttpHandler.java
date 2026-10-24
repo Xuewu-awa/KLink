@@ -17,6 +17,7 @@ import com.android1939.kardsserver.ws.SimpleWebSocketServer;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.HashMap;
 import java.util.List;
@@ -494,7 +495,11 @@ public final class KardsHttpHandler implements SimpleHttpServer.Handler {
         }
         if ("GET".equals(method) && "/admin/pak/status".equals(path)) {
             requireAdmin(request, null);
-            return HttpResponse.json(200, versionPak.status());
+            JSONObject status = versionPak.status();
+            // 把实际下发的版本白名单也带上：客户端报「版本错误」时，
+            // 用户能直接在面板上核对「pak 里的版本」有没有在这张表里
+            status.put("versions", stringArray(clientVersions()));
+            return HttpResponse.json(200, status);
         }
         if ("POST".equals(method) && "/admin/pak/apply".equals(path)) {
             JSONObject body = request.jsonBody();
@@ -1620,14 +1625,52 @@ public final class KardsHttpHandler implements SimpleHttpServer.Handler {
         return optionsStore.readForSession(webSocketUrl(request), clientVersions());
     }
 
-    /** 允许连接的客户端版本白名单；末位必须与版本补丁 pak 写入的版本一致。 */
+    /**
+     * 允许连接的客户端版本白名单；末位必须与版本补丁 pak 写入的版本一致。
+     *
+     * <p><b>为什么不能只放常量</b>：客户端是拿自己的版本号来这张表里找的，
+     * 找不到就报「版本错误」。表里写死常量时，只有在「版本补丁」页用的是默认版本
+     * 才碰得上；用户一旦填了别的版本号，pak 写的是他的值，白名单里却没有 ——
+     * 表现为设置生效了、却一进游戏就被版本检测挡住。</p>
+     *
+     * <p>所以这里按「客户端实际会读到什么」来算：优先取已装进游戏 Paks 目录的
+     * {@code version_P.pak} 里的版本号，其次是面板保存值、模板原值。</p>
+     */
     private String[] clientVersions() {
-        return new String[]{
-                "Kards 1.47", "Kards 1.49", "Kards 1.50", "Kards 1.52",
-                "Kards 1.52.25476.launcher", "Kards 1.53", "Kards 1.54",
-                "Kards 1.54.26471.APK", "Kards 1.56",
-                VersionPakManager.DEFAULT_VERSION // "KLink 29452.29452" 版本补丁默认值
-        };
+        List<String> versions = new ArrayList<String>();
+        versions.add("Kards 1.47");
+        versions.add("Kards 1.49");
+        versions.add("Kards 1.50");
+        versions.add("Kards 1.52");
+        versions.add("Kards 1.52.25476.launcher");
+        versions.add("Kards 1.53");
+        versions.add("Kards 1.54");
+        versions.add("Kards 1.54.26471.APK");
+        versions.add("Kards 1.56");
+        addClientVersion(versions, VersionPakManager.DEFAULT_VERSION);
+        addClientVersion(versions, versionPak.outputVersion());
+        addClientVersion(versions, versionPak.savedVersion());
+        addClientVersion(versions, versionPak.templateVersion());
+        return versions.toArray(new String[versions.size()]);
+    }
+
+    /**
+     * 把一个版本号加进白名单：去掉首尾空白的和原样的都加。
+     *
+     * <p>pak 是等长替换，版本号短于容量时会右填空格；客户端如果连空格一起报上来，
+     * 只有原文能匹配，所以两种形式都放行（白名单只是"允许哪些"，放宽没有副作用）。</p>
+     */
+    private static void addClientVersion(List<String> versions, String raw) {
+        if (raw == null || raw.length() == 0) {
+            return;
+        }
+        String trimmed = raw.trim();
+        if (trimmed.length() > 0 && !versions.contains(trimmed)) {
+            versions.add(trimmed);
+        }
+        if (!trimmed.equals(raw) && !versions.contains(raw)) {
+            versions.add(raw);
+        }
     }
 
     /**

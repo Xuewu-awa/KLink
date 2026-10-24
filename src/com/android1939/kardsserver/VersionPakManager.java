@@ -59,9 +59,13 @@ public final class VersionPakManager {
     public JSONObject status() {
         JSONObject json = new JSONObject();
         try {
+            File outputFile = new File(outputDir, OUTPUT_NAME);
             json.put("template_exists", templateFile.exists());
             json.put("template_path", templateFile.getAbsolutePath());
-            json.put("output_path", new File(outputDir, OUTPUT_NAME).getAbsolutePath());
+            json.put("output_path", outputFile.getAbsolutePath());
+            json.put("output_exists", outputFile.exists());
+            json.put("output_version", outputVersion());
+            json.put("template_version", templateVersion());
             json.put("saved_version", readStoredVersion());
             json.put("default_version", DEFAULT_VERSION);
             json.put("error", "");
@@ -72,9 +76,9 @@ public final class VersionPakManager {
                     json.put("error", "模板中未找到 ProjectVersion=");
                 } else {
                     json.put("capacity", range[2]);
-                    String templateVersion = new String(data, range[0], range[1] - range[0], "ASCII").trim();
-                    json.put("template_version", templateVersion);
-                    json.put("default_version", defaultVersionFor(range[2], templateVersion));
+                    String value = new String(data, range[0], range[1] - range[0], "ASCII").trim();
+                    json.put("template_version", value);
+                    json.put("default_version", defaultVersionFor(range[2], value));
                 }
             } else {
                 json.put("error", "模板不存在，请将 version.pak 放入 " + templateFile.getParent());
@@ -86,6 +90,58 @@ public final class VersionPakManager {
             }
         }
         return json;
+    }
+
+    /**
+     * 模板里的版本号原文（未找到返回空串）。
+     *
+     * <p>注意返回**未去空格**的原文：pak 是等长替换，版本号短于容量时会右填空格，
+     * 调用方要能判断出"写出去的到底是多少个字符"。</p>
+     */
+    public String templateVersion() {
+        try {
+            if (!templateFile.exists()) {
+                return "";
+            }
+            return versionOf(readBytes(templateFile));
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    /**
+     * 已经装进游戏 Paks 目录的 {@code version_P.pak} 里的版本号原文（未找到返回空串）。
+     *
+     * <p>这是**客户端真正会读到**的那个值，比模板和保存值都准 ——
+     * 服务器下发版本白名单时要按它来，否则客户端拿自己的版本去比对会报「版本错误」。</p>
+     */
+    public String outputVersion() {
+        try {
+            File output = new File(outputDir, OUTPUT_NAME);
+            if (!output.exists()) {
+                return "";
+            }
+            return versionOf(readBytes(output));
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    /** 面板里保存过的版本号（空串表示没保存过）。 */
+    public String savedVersion() {
+        return readStoredVersion();
+    }
+
+    private String versionOf(byte[] data) {
+        int[] range = locateVersionRange(data);
+        if (range == null) {
+            return "";
+        }
+        try {
+            return new String(data, range[0], range[1] - range[0], "ASCII");
+        } catch (Exception e) {
+            return "";
+        }
     }
 
     /**

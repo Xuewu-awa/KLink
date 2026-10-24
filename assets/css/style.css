@@ -1666,6 +1666,8 @@ body.immersive #theme-bg-video {
     color: var(--text-secondary, #c3c7d1);
     line-height: 1.8;
 }
+.pak-status .pak-ok { color: #10b981; }
+.pak-status .pak-err { color: #ef4444; }
 
 /* ===== 弹窗（添加/更新卡牌与卡组代码） ===== */
 .modal-mask {
